@@ -1,0 +1,22 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+--font-sans: "DM Sans", sans-serif;
+--color-background: #ffffff;
+--color-primary: #f97316;
+--color-primary-foreground: #ffffff;
+--color-navy: #172b4d;
+--color-canvas: #f3f5f8;
+}
+
+html {
+  min-width: 320px;
+  background: #f3f5f8;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  color: #172b4d;
+}

@@ -1,0 +1,37 @@
+import { createElement } from 'react'
+import { AlertCircle, ArrowRight, BadgeCheck, CalendarCheck, MapPin, RefreshCw } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import CustomerProductCard from '../components/CustomerProductCard'
+import CustomerImage from '../components/CustomerImage'
+import { useCustomerStore } from '../components/useCustomerStore'
+
+const services = [
+  { icon: BadgeCheck, title: 'Gear terkurasi', text: 'Pilihan perlengkapan untuk kebutuhan jalur dan perjalanan.' },
+  { icon: CalendarCheck, title: 'Sewa fleksibel', text: 'Rencanakan durasi dan jumlah alat sebelum datang.' },
+  { icon: MapPin, title: 'Berbasis di Sikur', text: 'Kunjungi Arutala Adventure di Lombok Timur.' },
+]
+
+export default function StoreHome() {
+  const { products, categories, catalogLoading, catalogError, reloadCatalog } = useCustomerStore()
+  const featuredProducts = products.filter((product) => product.featured)
+
+  return <>
+    <section className="relative isolate min-h-[550px] overflow-hidden bg-navy text-white max-md:min-h-[590px]">
+      <img src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=2200&q=90" alt="Pegunungan Lombok saat pagi" className="absolute inset-0 -z-20 size-full object-cover" />
+      <div className="absolute inset-0 -z-10 bg-navy/65" />
+      <div className="mx-auto flex min-h-[550px] max-w-7xl items-center px-5 py-16 max-md:min-h-[590px] max-md:px-4">
+        <div className="max-w-2xl"><p className="mb-4 text-xs font-bold uppercase tracking-[0.18em] text-orange-200">Perjalanan dimulai dari sini</p><h1 className="mb-5 text-5xl font-bold leading-[1.05] tracking-tight max-md:text-4xl max-sm:text-3xl">Perlengkapan tepat.<br />Cerita yang lebih jauh.</h1><p className="mb-8 max-w-xl text-base leading-relaxed text-white/85 max-sm:text-sm">Jelajahi perlengkapan pendakian untuk dibeli atau disewa. Pilih gear, siapkan rute, dan berangkat dengan tenang.</p><div className="flex flex-wrap gap-3"><Link to="/katalog?jenis=jual" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-white transition hover:bg-[#E7650D]">Belanja sekarang <ArrowRight size={17} /></Link><Link to="/katalog?jenis=sewa" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-white/70 bg-white/10 px-5 text-sm font-semibold text-white transition hover:bg-white hover:text-navy">Sewa alat <CalendarCheck size={16} /></Link></div><p className="mb-0 mt-5 text-xs text-white/70">Stok katalog berasal dari API; ketersediaan akhir dikonfirmasi toko.</p></div>
+      </div>
+      <div className="absolute bottom-5 right-5 hidden rounded-lg border border-white/25 bg-navy/60 px-3 py-2 text-xs text-white/90 backdrop-blur-sm lg:block">Jalur lokal · Lombok Timur</div>
+    </section>
+
+    <section className="mx-auto max-w-7xl px-5 py-14 max-md:px-4 max-md:py-10">
+      <div className="mb-6 flex items-end justify-between gap-4"><div><p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-primary">Temukan kebutuhanmu</p><h2 className="m-0 text-2xl font-bold tracking-tight text-navy max-sm:text-xl">Belanja berdasarkan kategori</h2></div><Link to="/katalog" className="hidden items-center gap-1 text-sm font-semibold text-navy hover:text-primary sm:flex">Semua produk <ArrowRight size={15} /></Link></div>
+      {catalogLoading ? <p role="status" className="rounded-xl bg-white p-6 text-sm text-[#566274]">Memuat kategori...</p> : catalogError ? <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"><span className="flex items-center gap-2"><AlertCircle size={16} />Kategori gagal dimuat dari server.</span><button type="button" onClick={reloadCatalog} className="inline-flex items-center gap-2 font-semibold hover:underline"><RefreshCw size={14} />Coba lagi</button></div> : categories.length ? <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">{categories.map((category) => <Link key={category.id} to={`/katalog?kategori=${encodeURIComponent(category.name)}`} className="group relative aspect-[1.12] overflow-hidden rounded-xl border border-[#DDE2E9] bg-navy"><CustomerImage src={category.image} alt="" loading="lazy" className="absolute inset-0 transition-transform duration-500 group-hover:scale-105" /><span className="absolute inset-0 bg-navy/45 transition group-hover:bg-navy/60" /><span className="absolute bottom-3 left-3 right-2 text-sm font-semibold text-white">{category.name}</span></Link>)}</div> : <p className="text-sm text-[#566274]">Belum ada kategori di katalog.</p>}
+    </section>
+
+    <section className="border-y border-[#DDE2E9] bg-white"><div className="mx-auto max-w-7xl px-5 py-14 max-md:px-4 max-md:py-10"><div className="mb-6 flex items-end justify-between gap-4"><div><p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-primary">Pilihan tim Arutala</p><h2 className="m-0 text-2xl font-bold tracking-tight text-navy max-sm:text-xl">Gear untuk langkah berikutnya</h2></div><Link to="/katalog" className="inline-flex items-center gap-1 text-sm font-semibold text-navy hover:text-primary">Lihat katalog <ArrowRight size={15} /></Link></div>{catalogLoading ? <p role="status" className="text-sm text-[#566274]">Memuat produk unggulan...</p> : catalogError ? <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"><span>Produk unggulan gagal dimuat dari server.</span><button type="button" onClick={reloadCatalog} className="font-semibold hover:underline">Coba lagi</button></div> : featuredProducts.length ? <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">{featuredProducts.map((product) => <CustomerProductCard key={product.id} product={product} />)}</div> : <p className="text-sm text-[#566274]">Belum ada produk unggulan.</p>}</div></section>
+
+    <section className="mx-auto max-w-7xl px-5 py-14 max-md:px-4 max-md:py-10"><div className="mb-7 max-w-xl"><p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-primary">Ditemani sejak persiapan</p><h2 className="m-0 text-2xl font-bold tracking-tight text-navy max-sm:text-xl">Perjalanan lebih siap, dari awal</h2></div><div className="grid gap-4 md:grid-cols-3">{services.map(({ icon, title, text }) => <article key={title} className="rounded-xl border border-[#DDE2E9] bg-white p-5 shadow-[0_2px_12px_rgba(23,43,77,0.04)]"><span className="mb-5 grid size-11 place-items-center rounded-lg bg-orange-50 text-primary">{createElement(icon, { size: 20 })}</span><h3 className="mb-2 text-base font-semibold text-navy">{title}</h3><p className="m-0 text-sm leading-relaxed text-[#566274]">{text}</p></article>)}</div><div className="mt-6 flex items-center justify-between gap-4 rounded-xl bg-navy px-6 py-5 text-white max-sm:flex-col max-sm:items-start"><div><h3 className="m-0 text-lg font-semibold">Belum yakin gear yang dibutuhkan?</h3><p className="mb-0 mt-1 text-sm text-white/75">Hubungi tim Arutala sebelum perjalanan.</p></div><Link to="/kontak" className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-white px-4 text-sm font-semibold text-navy transition hover:bg-orange-50">Info toko <ArrowRight size={15} /></Link></div></section>
+  </>
+}
