@@ -21,7 +21,7 @@ function RevenueChart({ values, period }) {
   return <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div><h2 className="m-0 text-base font-semibold text-navy">Pendapatan {period === 'daily' ? 'harian' : 'bulanan'}</h2><p className="mb-0 mt-1 text-xs text-slate-500">Berdasarkan waktu pembayaran berhasil di ledger.</p></div>
-      <div className="flex gap-4 text-[11px] text-slate-600"><span className="flex items-center gap-1.5"><i className="size-2.5 rounded-sm bg-orange-500" />Pembelian</span><span className="flex items-center gap-1.5"><i className="size-2.5 rounded-sm bg-blue-500" />Penyewaan</span></div>
+      <div className="flex gap-4 text-[11px] text-slate-600"><span className="flex items-center gap-1.5"><i className="size-2.5 rounded-sm bg-sand/400" />Pembelian</span><span className="flex items-center gap-1.5"><i className="size-2.5 rounded-sm bg-blue-500" />Penyewaan</span></div>
     </div>
     {values.length ? <div className="mt-5">
       <div className="flex h-48 items-end gap-1 border-b border-l border-slate-200 px-2">
@@ -31,7 +31,7 @@ function RevenueChart({ values, period }) {
           return <div key={entry.date} className="group relative flex h-full min-w-0 flex-1 items-end justify-center">
             <div className="flex w-full max-w-8 flex-col justify-end overflow-hidden rounded-t-sm" style={{ height: `${purchaseHeight + rentalHeight}%` }}>
               <span className="block bg-blue-500" style={{ height: `${rentalHeight / Math.max(1, purchaseHeight + rentalHeight) * 100}%` }} />
-              <span className="block bg-orange-500" style={{ height: `${purchaseHeight / Math.max(1, purchaseHeight + rentalHeight) * 100}%` }} />
+              <span className="block bg-sand/400" style={{ height: `${purchaseHeight / Math.max(1, purchaseHeight + rentalHeight) * 100}%` }} />
             </div>
             <div className="pointer-events-none absolute bottom-full z-10 mb-2 hidden whitespace-nowrap rounded-md bg-navy px-2 py-1 text-[10px] text-white shadow group-hover:block">
               {entry.date} · Pembelian {money(entry.purchase)} · Sewa {money(entry.rental)}
@@ -63,7 +63,7 @@ function PendingTable({ title, records, type, href }) {
   return <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
     <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
       <div><h2 className="m-0 text-sm font-semibold text-navy">{title}</h2><p className="mb-0 mt-1 text-[11px] text-slate-500">{records.length} perlu ditindaklanjuti</p></div>
-      <Link to={href} className="text-xs font-semibold text-[#C94F08] hover:underline">Kelola</Link>
+      <Link to={href} className="text-xs font-semibold text-secondary hover:underline">Kelola</Link>
     </div>
     <div className="overflow-x-auto">
       <table className="w-full min-w-[560px] border-collapse text-left">
@@ -110,7 +110,7 @@ export default function AdminDashboard() {
 
   const stats = useMemo(() => report ? [
     { label: 'Total pendapatan', value: money(report.revenue.total), note: `Pembelian ${money(report.revenue.purchase)} · Sewa ${money(report.revenue.rental)}`, icon: Wallet, tone: 'bg-violet-50 text-violet-700' },
-    { label: 'Transaksi pembelian', value: report.transactions.purchases, note: 'Order dibuat pada rentang tanggal', icon: ClipboardList, tone: 'bg-orange-50 text-[#C94F08]' },
+    { label: 'Transaksi pembelian', value: report.transactions.purchases, note: 'Order dibuat pada rentang tanggal', icon: ClipboardList, tone: 'bg-sand/40 text-secondary' },
     { label: 'Transaksi penyewaan', value: report.transactions.rentals, note: 'Rental dibuat pada rentang tanggal', icon: CalendarDays, tone: 'bg-blue-50 text-blue-700' },
     { label: 'Pelanggan', value: report.customers.total, note: `${report.customers.online} online · ${report.customers.offline} offline`, icon: UsersRound, tone: 'bg-emerald-50 text-emerald-700' },
   ] : [], [report])
@@ -129,13 +129,13 @@ export default function AdminDashboard() {
   return <div>
     <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
       <div><p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-primary">Ringkasan usaha · Data database</p><h1 className="m-0 text-2xl font-bold tracking-tight text-navy max-sm:text-xl">Dashboard Admin</h1><p className="mb-0 mt-2 text-sm text-slate-600">Pendapatan berasal dari Payment berstatus berhasil.</p></div>
-      <Link to="/admin/payments" className="text-xs font-semibold text-[#C94F08] hover:underline">Lihat riwayat pembayaran</Link>
+      <Link to="/admin/payments" className="text-xs font-semibold text-secondary hover:underline">Lihat riwayat pembayaran</Link>
     </div>
     <form onSubmit={applyFilters} className="mb-5 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <label className="text-xs font-semibold text-navy">Dari tanggal<input type="date" required value={startDate} onChange={(event) => setStartDate(event.target.value)} className="mt-1.5 block h-10 rounded-lg border border-slate-200 px-3 text-xs font-normal" /></label>
       <label className="text-xs font-semibold text-navy">Sampai tanggal<input type="date" required value={endDate} onChange={(event) => setEndDate(event.target.value)} className="mt-1.5 block h-10 rounded-lg border border-slate-200 px-3 text-xs font-normal" /></label>
       <label className="text-xs font-semibold text-navy">Grafik<select value={period} onChange={(event) => setPeriod(event.target.value)} className="mt-1.5 block h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-normal"><option value="daily">Harian</option><option value="monthly">Bulanan</option></select></label>
-      <button type="submit" disabled={loading} className="h-10 rounded-lg bg-primary px-4 text-xs font-semibold text-white disabled:opacity-50">Terapkan filter</button>
+      <button type="submit" disabled={loading} className="h-10 rounded-lg bg-primary px-4 text-xs font-semibold text-secondary disabled:opacity-50">Terapkan filter</button>
       <span className="ml-auto text-[11px] text-slate-500">{filters.startDate} – {filters.endDate}</span>
     </form>
 

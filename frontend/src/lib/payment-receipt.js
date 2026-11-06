@@ -33,7 +33,7 @@ export function printPaymentReceipt(payment, transaction) {
       : statusLabels[payment.status] || payment.status || '—'
   const html = `<!doctype html><html lang="id"><head><meta charset="utf-8"><title>Struk ${escapeHtml(payment.reference)}</title>
     <style>
-      *{box-sizing:border-box}body{font:14px Arial,sans-serif;color:#172b4d;margin:0;padding:32px}
+      *{box-sizing:border-box}body{font:14px Arial,sans-serif;color:#4D2A00;margin:0;padding:32px}
       main{max-width:620px;margin:0 auto}h1{font-size:22px;margin:0}p{margin:5px 0}
       .muted{color:#64748b;font-size:12px}.block{border-top:1px solid #cbd5e1;margin-top:18px;padding-top:14px}
       .row{display:flex;justify-content:space-between;gap:12px;margin:7px 0}

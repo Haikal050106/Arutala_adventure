@@ -17,7 +17,7 @@ function CustomerRoot() {
 }
 
 function NotFound() {
-  return <div className="mx-auto max-w-xl px-5 py-20 text-center"><p className="text-xs font-bold uppercase tracking-[0.14em] text-primary">404 · Halaman tidak ditemukan</p><h1 className="mt-3 text-2xl font-bold text-navy">Halaman ini tidak tersedia</h1><Link to="/" className="mt-5 inline-flex text-sm font-semibold text-[#C94F08]">Kembali ke beranda</Link></div>
+  return <div className="mx-auto max-w-xl px-5 py-20 text-center"><p className="text-xs font-bold uppercase tracking-[0.14em] text-primary">404 · Halaman tidak ditemukan</p><h1 className="mt-3 text-2xl font-bold text-navy">Halaman ini tidak tersedia</h1><Link to="/" className="mt-5 inline-flex text-sm font-semibold text-secondary">Kembali ke beranda</Link></div>
 }
 
 export default function CustomerApp() {

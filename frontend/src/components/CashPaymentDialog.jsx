@@ -27,13 +27,13 @@ export default function CashPaymentDialog({ title, transactionNumber, amountDue,
       <h2 id="cash-payment-title" className="m-0 text-lg font-semibold text-navy">{title}</h2>
       <p className="mb-4 mt-2 text-xs text-slate-600">{transactionNumber} · Sisa tagihan {money(amountDue)}</p>
       <label className="block text-xs font-semibold text-navy">Uang diterima
-        <input required autoFocus type="number" min={amountDue} step="0.01" value={cashReceived} onChange={(event) => setCashReceived(event.target.value)} className="mt-1.5 h-11 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100" />
+        <input required autoFocus type="number" min={amountDue} step="0.01" value={cashReceived} onChange={(event) => setCashReceived(event.target.value)} className="mt-1.5 h-11 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-primary focus:ring-2 focus:ring-primary/25" />
       </label>
       <div className="mt-3 flex justify-between rounded-lg bg-slate-50 px-3 py-2.5 text-xs text-slate-600"><span>Kembalian</span><b className="text-sm text-navy">{money(change)}</b></div>
       {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-xs text-red-700">{error}</p>}
       <div className="mt-5 flex justify-end gap-2">
         <button type="button" disabled={busy} onClick={onClose} className="h-9 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-600 disabled:opacity-50">Batal</button>
-        <button type="submit" disabled={busy || Number(cashReceived) < Number(amountDue)} className="h-9 rounded-lg bg-primary px-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">{busy ? 'Mencatat...' : 'Catat tunai'}</button>
+        <button type="submit" disabled={busy || Number(cashReceived) < Number(amountDue)} className="h-9 rounded-lg bg-primary px-3 text-xs font-semibold text-secondary disabled:cursor-not-allowed disabled:opacity-50">{busy ? 'Mencatat...' : 'Catat tunai'}</button>
       </div>
     </form>
   </div>

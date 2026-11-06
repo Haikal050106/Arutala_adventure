@@ -25,7 +25,7 @@ function AdminNotFound() {
   return <section className="rounded-xl border border-slate-200 bg-white p-8 text-center">
     <h1 className="text-xl font-bold text-navy">Halaman Admin belum tersedia</h1>
     <p className="mt-2 text-sm text-slate-600">Halaman Admin yang diminta tidak tersedia.</p>
-    <Link to="/admin" className="mt-4 inline-flex text-sm font-semibold text-[#C94F08] hover:underline">Kembali ke dashboard</Link>
+    <Link to="/admin" className="mt-4 inline-flex text-sm font-semibold text-secondary hover:underline">Kembali ke dashboard</Link>
   </section>
 }
 

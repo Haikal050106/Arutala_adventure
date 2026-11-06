@@ -4,9 +4,11 @@
 @theme {
 --font-sans: "DM Sans", sans-serif;
 --color-background: #ffffff;
---color-primary: #f97316;
---color-primary-foreground: #ffffff;
---color-navy: #172b4d;
+--color-primary: #EB7D00;
+--color-primary-foreground: #4D2A00;
+--color-secondary: #4D2A00;
+--color-sand: #EBE3A7;
+--color-navy: #4D2A00;
 --color-canvas: #f3f5f8;
 }
 
@@ -18,5 +20,5 @@ html {
 body {
   min-height: 100vh;
   margin: 0;
-  color: #172b4d;
+  color: #4D2A00;
 }

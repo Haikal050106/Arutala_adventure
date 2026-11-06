@@ -400,15 +400,15 @@ export default function AdminRentalsPage({ mode = 'all' }) {
       <section className="min-w-0 rounded-xl border border-slate-200 bg-white p-5 shadow-sm max-sm:p-3.5">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <h2 className="m-0 text-sm font-semibold text-navy">Pilih perlengkapan sewa</h2>
-          <label className="relative min-w-[190px] flex-1 sm:max-w-xs"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari produk..." aria-label="Cari produk sewa" className="h-10 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-xs outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100" /></label>
+          <label className="relative min-w-[190px] flex-1 sm:max-w-xs"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari produk..." aria-label="Cari produk sewa" className="h-10 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-xs outline-none focus:border-primary focus:ring-2 focus:ring-primary/25" /></label>
         </div>
         {!validDates && <p role="alert" className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">Tanggal kembali harus setelah tanggal mulai.</p>}
         {products.filter((product) => `${product.name} ${product.category?.name || ''}`.toLowerCase().includes(query.trim().toLowerCase())).map((product) => {
           const available = availableUnits(product)
-          return <button type="button" key={product.id} disabled={!validDates || available < 1} onClick={() => addProduct(product)} className="mb-3 mr-3 inline-flex w-[calc(50%-0.5rem)] flex-col rounded-xl border border-slate-200 p-3 text-left transition hover:border-orange-300 hover:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50 sm:w-[calc(33.333%-0.75rem)] xl:w-[calc(25%-0.75rem)]">
+          return <button type="button" key={product.id} disabled={!validDates || available < 1} onClick={() => addProduct(product)} className="mb-3 mr-3 inline-flex w-[calc(50%-0.5rem)] flex-col rounded-xl border border-slate-200 p-3 text-left transition hover:border-primary/50 hover:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50 sm:w-[calc(33.333%-0.75rem)] xl:w-[calc(25%-0.75rem)]">
             <span className="block truncate text-[10px] text-slate-500">{product.category?.name || 'Produk'}</span>
             <strong className="mt-1 block min-h-9 text-xs leading-snug text-navy">{product.name}</strong>
-            <span className="mt-2 block text-sm font-bold text-[#C94F08]">{money(product.rent_price_per_day)}<small className="ml-1 text-[10px] font-medium text-slate-500">/ hari</small></span>
+            <span className="mt-2 block text-sm font-bold text-secondary">{money(product.rent_price_per_day)}<small className="ml-1 text-[10px] font-medium text-slate-500">/ hari</small></span>
             <span className="mt-2 block text-[10px] font-medium text-slate-500">Tersedia untuk tanggal ini: {available}</span>
           </button>
         })}
@@ -420,12 +420,12 @@ export default function AdminRentalsPage({ mode = 'all' }) {
         <div className="bg-navy px-5 py-4 text-white"><h2 className="m-0 text-base font-semibold">Transaksi sewa</h2><p className="mb-0 mt-1 text-xs text-slate-300">Server memvalidasi ketersediaan dan biaya.</p></div>
         <div className="space-y-4 p-5">
           <CustomerPicker customers={customers} value={customerId} onChange={selectCustomer} />
-          <label className="block text-xs font-semibold text-navy">Desa/Kelurahan<input required maxLength={150} value={villageName} onChange={(event) => setVillageName(event.target.value)} placeholder="Nama desa/kelurahan" className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100" /></label>
+          <label className="block text-xs font-semibold text-navy">Desa/Kelurahan<input required maxLength={150} value={villageName} onChange={(event) => setVillageName(event.target.value)} placeholder="Nama desa/kelurahan" className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-primary focus:ring-2 focus:ring-primary/25" /></label>
           <div className="grid grid-cols-2 gap-3">
-            <label className="block text-xs font-semibold text-navy">Mulai sewa<input required type="date" min={today} value={startDate} onChange={(event) => setStartDate(event.target.value)} className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-2 text-xs font-normal outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100" /></label>
-            <label className="block text-xs font-semibold text-navy">Tanggal kembali<input required type="date" min={startDate || today} value={returnDate} onChange={(event) => setReturnDate(event.target.value)} className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-2 text-xs font-normal outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100" /></label>
+            <label className="block text-xs font-semibold text-navy">Mulai sewa<input required type="date" min={today} value={startDate} onChange={(event) => setStartDate(event.target.value)} className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-2 text-xs font-normal outline-none focus:border-primary focus:ring-2 focus:ring-primary/25" /></label>
+            <label className="block text-xs font-semibold text-navy">Tanggal kembali<input required type="date" min={startDate || today} value={returnDate} onChange={(event) => setReturnDate(event.target.value)} className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-2 text-xs font-normal outline-none focus:border-primary focus:ring-2 focus:ring-primary/25" /></label>
           </div>
-          <label className="block text-xs font-semibold text-navy">Catatan (opsional)<textarea maxLength={2000} value={notes} onChange={(event) => setNotes(event.target.value)} className="mt-1.5 h-20 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-normal outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100" /></label>
+          <label className="block text-xs font-semibold text-navy">Catatan (opsional)<textarea maxLength={2000} value={notes} onChange={(event) => setNotes(event.target.value)} className="mt-1.5 h-20 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-normal outline-none focus:border-primary focus:ring-2 focus:ring-primary/25" /></label>
           <div className="max-h-52 overflow-auto border-y border-slate-100 py-2">
             {cart.map(({ product, quantity }) => <div key={product.id} className="flex items-start gap-3 py-2">
               <div className="min-w-0 flex-1"><strong className="block truncate text-xs text-navy">{product.name}</strong><span className="mt-1 block text-[11px] text-slate-500">{money(product.rent_price_per_day)} × {quantity} unit × {days} hari · Subtotal {money(Number(product.rent_price_per_day) * quantity * days)}</span>
@@ -438,7 +438,7 @@ export default function AdminRentalsPage({ mode = 'all' }) {
           <div className="flex items-center justify-between text-sm text-slate-600"><span>Durasi {days || 0} hari · Total</span><strong className="text-lg font-bold text-navy">{money(total)}</strong></div>
           {mode === 'cashier' && <>
             <label className="block text-xs font-semibold text-navy">Metode pembayaran
-              <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100">
+              <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal outline-none focus:border-primary focus:ring-2 focus:ring-primary/25">
                 <option value="cash">Tunai (Cash)</option>
                 <option value="qris">QRIS statis</option>
               </select>
@@ -446,12 +446,12 @@ export default function AdminRentalsPage({ mode = 'all' }) {
             {paymentMethod === 'cash'
               ? <div>
                 <label className="block text-xs font-semibold text-navy">Uang diterima
-                  <input required type="number" min={total} step="0.01" value={cashReceived} onChange={(event) => setCashReceived(event.target.value)} className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100" />
+                  <input required type="number" min={total} step="0.01" value={cashReceived} onChange={(event) => setCashReceived(event.target.value)} className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-primary focus:ring-2 focus:ring-primary/25" />
                 </label>
                 <div className="mt-2 flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600"><span>Kembalian</span><strong className="text-sm text-navy">{money(cashChange)}</strong></div>
                 {Number(cashReceived || 0) < total && <p role="alert" className="mb-0 mt-2 text-xs text-red-700">Uang diterima tidak boleh kurang dari total pembayaran.</p>}
               </div>
-              : <div className="rounded-lg border border-[#E8D6CE] bg-[#FBF6F3] p-3 text-xs text-[#24211F]">
+              : <div className="rounded-lg border border-[#E8D6CE] bg-[#FBF6F3] p-3 text-xs text-secondary">
                 <p className="m-0 font-semibold">Nominal QRIS: {money(total)}</p>
                 {qrisImage
                   ? <img src={qrisImage} alt="QRIS statis toko" className="mx-auto mt-3 max-h-40 w-full rounded-md bg-white object-contain p-2" />
@@ -459,7 +459,7 @@ export default function AdminRentalsPage({ mode = 'all' }) {
                 <p className="mb-0 mt-2">Pembayaran akan berstatus Pending sampai kasir memeriksa dana masuk dan mengonfirmasi.</p>
               </div>}
           </>}
-          <button type="submit" disabled={saving || loading || !cart.length || !validDates || !cartHasAvailability || !customerId || !villageName.trim() || mode === 'cashier' && paymentMethod === 'cash' && Number(cashReceived || 0) < total || mode === 'cashier' && paymentMethod === 'qris' && !qrisImage} className="h-11 w-full rounded-lg bg-primary px-4 text-sm font-semibold text-white transition hover:bg-[#E7650D] disabled:cursor-not-allowed disabled:opacity-50">
+          <button type="submit" disabled={saving || loading || !cart.length || !validDates || !cartHasAvailability || !customerId || !villageName.trim() || mode === 'cashier' && paymentMethod === 'cash' && Number(cashReceived || 0) < total || mode === 'cashier' && paymentMethod === 'qris' && !qrisImage} className="h-11 w-full rounded-lg bg-primary px-4 text-sm font-semibold text-secondary transition hover:bg-secondary hover:text-white disabled:cursor-not-allowed disabled:opacity-50">
             {saving ? 'Memproses penyewaan...' : mode !== 'cashier' ? 'Buat transaksi sewa' : paymentMethod === 'qris' ? 'Buat penyewaan & QRIS · Pending' : 'Buat penyewaan & catat tunai'}
           </button>
         </div>
@@ -470,9 +470,9 @@ export default function AdminRentalsPage({ mode = 'all' }) {
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
         <div><h2 className="m-0 text-sm font-semibold text-navy">Daftar penyewaan</h2><p className="mb-0 mt-1 text-xs text-slate-500">{visibleRentals.length} transaksi · data API</p></div>
         <div className="flex min-w-0 flex-1 flex-wrap gap-2 sm:justify-end">
-          <label className="relative min-w-[190px] flex-1 sm:max-w-xs"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari transaksi..." aria-label="Cari transaksi sewa" className="h-10 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-xs outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100" /></label>
+          <label className="relative min-w-[190px] flex-1 sm:max-w-xs"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari transaksi..." aria-label="Cari transaksi sewa" className="h-10 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-xs outline-none focus:border-primary focus:ring-2 focus:ring-primary/25" /></label>
           <label className="sr-only" htmlFor="rental-status-filter">Filter status penyewaan</label>
-          <select id="rental-status-filter" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-600 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100">
+          <select id="rental-status-filter" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-600 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25">
             <option value="">Semua status</option>
             {Object.entries(statusLabels).map(([status, label]) => <option key={status} value={status}>{label}</option>)}
           </select>
@@ -546,7 +546,7 @@ export default function AdminRentalsPage({ mode = 'all' }) {
         <p className="mb-4 mt-2 text-xs text-slate-600">Catat kondisi setiap barang sebelum menyelesaikan pengembalian {returningRental.rental_number}.</p>
         <div className="max-h-[55vh] space-y-3 overflow-auto">
           {(returningRental.rental_items || []).map((item) => <label key={item.id} className="block text-xs font-semibold text-navy">{item.product?.name || 'Produk'} · {item.quantity} unit
-            <select required value={returnConditions[item.id] || ''} onChange={(event) => setReturnConditions((current) => ({ ...current, [item.id]: event.target.value }))} className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-normal outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100">
+            <select required value={returnConditions[item.id] || ''} onChange={(event) => setReturnConditions((current) => ({ ...current, [item.id]: event.target.value }))} className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-normal outline-none focus:border-primary focus:ring-2 focus:ring-primary/25">
               <option value="">Pilih kondisi barang</option>
               {Object.entries(returnConditionLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
@@ -554,7 +554,7 @@ export default function AdminRentalsPage({ mode = 'all' }) {
         </div>
         <div className="mt-5 flex justify-end gap-2">
           <button type="button" disabled={updatingId !== null} onClick={() => setReturningRental(null)} className="h-9 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-600">Batal</button>
-          <button type="submit" disabled={updatingId !== null || Object.values(returnConditions).some((condition) => !condition.trim())} className="h-9 rounded-lg bg-primary px-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">{updatingId === returningRental.id ? 'Menyimpan...' : 'Selesaikan pengembalian'}</button>
+          <button type="submit" disabled={updatingId !== null || Object.values(returnConditions).some((condition) => !condition.trim())} className="h-9 rounded-lg bg-primary px-3 text-xs font-semibold text-secondary disabled:cursor-not-allowed disabled:opacity-50">{updatingId === returningRental.id ? 'Menyimpan...' : 'Selesaikan pengembalian'}</button>
         </div>
       </form>
     </div>}

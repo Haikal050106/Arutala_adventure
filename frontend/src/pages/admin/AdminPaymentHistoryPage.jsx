@@ -91,7 +91,7 @@ export default function AdminPaymentHistoryPage() {
     <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
       <div><h1 className="m-0 text-2xl font-bold tracking-tight text-navy">Riwayat Pembayaran</h1><p className="mb-0 mt-2 text-sm text-slate-600">Catatan Payment Order dan Rental; status berasal dari ledger pembayaran.</p></div>
       <label className="w-full max-w-sm text-xs font-semibold text-navy">Cari transaksi atau pelanggan
-        <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nomor transaksi, referensi, nama, HP" className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100" />
+        <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nomor transaksi, referensi, nama, HP" className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-primary focus:ring-2 focus:ring-primary/25" />
       </label>
     </div>
     {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}

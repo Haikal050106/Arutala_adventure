@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
 
-const fieldClass = 'mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-navy outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100'
+const fieldClass = 'mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-navy outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/25'
 const labelClass = 'block text-xs font-semibold text-navy'
 
 function Field({ label, children }) {
@@ -96,7 +96,7 @@ export default function AdminRecordDialog({ section, record, products, categorie
         {error && <p role="alert" className="m-0 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>}
         <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
           <button type="button" onClick={onClose} disabled={saving} className="h-10 rounded-lg border border-slate-200 px-4 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">Batal</button>
-          <button type="submit" disabled={saving} className="h-10 rounded-lg bg-primary px-4 text-xs font-semibold text-white hover:bg-[#E7650D] disabled:cursor-not-allowed disabled:opacity-50">{saving ? 'Menyimpan...' : editing ? 'Simpan perubahan' : 'Simpan'}</button>
+          <button type="submit" disabled={saving} className="h-10 rounded-lg bg-primary px-4 text-xs font-semibold text-secondary hover:bg-secondary hover:text-white disabled:cursor-not-allowed disabled:opacity-50">{saving ? 'Menyimpan...' : editing ? 'Simpan perubahan' : 'Simpan'}</button>
         </div>
       </form>
     </section>

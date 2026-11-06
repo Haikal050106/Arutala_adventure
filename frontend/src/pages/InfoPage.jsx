@@ -10,7 +10,7 @@ export default function InfoPage({ title, description, columns, rows }) {
     <Card className="overflow-hidden">
       <div className="flex min-h-22 items-center justify-between gap-4 px-5 max-sm:flex-col max-sm:items-start max-sm:py-4">
         <div><h2 className="m-0 text-sm font-semibold text-navy">{title}</h2><p className="mt-1 text-xs text-slate-500">Informasi Arutala Adventure</p></div>
-        <input className="h-10 w-full max-w-60 rounded-lg border border-slate-200 bg-white px-3 text-sm placeholder:text-slate-400 outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 max-sm:max-w-none" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari data..." />
+        <input className="h-10 w-full max-w-60 rounded-lg border border-slate-200 bg-white px-3 text-sm placeholder:text-slate-400 outline-none focus:border-primary focus:ring-2 focus:ring-primary/25 max-sm:max-w-none" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari data..." />
       </div>
       <div className="w-full overflow-x-auto">
         <table className="w-full border-collapse text-left whitespace-nowrap">

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { adminApiRequest, readAdminToken } from '../lib/admin-api'
 
-const fieldClass = 'mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100'
+const fieldClass = 'mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal outline-none focus:border-primary focus:ring-2 focus:ring-primary/25'
 
 export default function CustomerPicker({ customers, value, onChange }) {
   const [query, setQuery] = useState('')
@@ -93,7 +93,7 @@ export default function CustomerPicker({ customers, value, onChange }) {
         <input maxLength={150} value={newCustomer.village_name} onChange={(event) => setNewCustomer((current) => ({ ...current, village_name: event.target.value }))} className={fieldClass} />
       </label>
       {error && <p role="alert" className="mb-0 text-xs text-red-700">{error}</p>}
-      <button type="submit" disabled={saving} className="h-9 w-full rounded-lg bg-primary px-3 text-xs font-semibold text-white disabled:opacity-50">
+      <button type="submit" disabled={saving} className="h-9 w-full rounded-lg bg-primary px-3 text-xs font-semibold text-secondary disabled:opacity-50">
         {saving ? 'Menyimpan...' : 'Simpan & pilih pelanggan'}
       </button>
     </form>}

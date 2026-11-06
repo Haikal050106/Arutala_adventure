@@ -129,7 +129,7 @@ export default function RentalPaymentPanel({ notify, qrisImage }) {
   return <section className="mt-6 overflow-hidden rounded-xl border border-[#E8D6CE] bg-white shadow-sm">
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#F0E8E4] px-5 py-4">
       <div>
-        <h2 className="m-0 flex items-center gap-2 text-sm font-semibold text-[#24211F]"><CreditCard size={16} className="text-[#8F4528]" />Pembayaran penyewaan</h2>
+        <h2 className="m-0 flex items-center gap-2 text-sm font-semibold text-secondary"><CreditCard size={16} className="text-secondary" />Pembayaran penyewaan</h2>
         <p className="mb-0 mt-1 text-xs text-slate-500">Pembayaran hanya tersedia setelah Admin/Kasir menyetujui booking.</p>
       </div>
       <button type="button" onClick={() => { setLoading(true); void loadRentals() }} className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50"><RefreshCw size={13} />Muat ulang</button>
@@ -140,25 +140,25 @@ export default function RentalPaymentPanel({ notify, qrisImage }) {
         const pendingQris = (rental.payments || []).some((payment) => payment.method === 'qris' && payment.status === 'pending')
         return <article key={rental.id} className="flex flex-wrap items-center justify-between gap-4 px-5 py-4">
           <div className="min-w-[220px] flex-1">
-            <p className="m-0 text-xs font-semibold text-[#24211F]">{rental.rental_number} · {rental.customer?.name || 'Pelanggan'}</p>
+            <p className="m-0 text-xs font-semibold text-secondary">{rental.rental_number} · {rental.customer?.name || 'Pelanggan'}</p>
             <p className="mb-0 mt-1 text-xs text-slate-500">{rental.display_status || 'Menunggu Pembayaran'} · pembayaran {rental.payment_status === 'partially_paid' ? 'sebagian' : 'belum lunas'}</p>
             <div className="mt-3 grid max-w-lg grid-cols-3 gap-2 rounded-lg bg-slate-50 p-3 text-xs">
               <div><span className="block text-slate-500">Total sewa</span><strong className="mt-1 block text-navy">{money(rental.total_amount)}</strong></div>
               <div><span className="block text-slate-500">Sudah dibayar</span><strong className="mt-1 block text-navy">{money(rental.amount_paid || 0)}</strong></div>
-              <div><span className="block text-slate-500">Sisa tagihan</span><strong className="mt-1 block text-[#8F4528]">{money(rental.balance_due)}</strong></div>
+              <div><span className="block text-slate-500">Sisa tagihan</span><strong className="mt-1 block text-secondary">{money(rental.balance_due)}</strong></div>
             </div>
             {(rental.rental_items || []).map((item) => <div key={item.id} className="mt-2 text-[11px] text-slate-500">
               <p className="m-0 font-semibold text-slate-600">{item.product?.name || 'Perlengkapan'} × {item.quantity}</p>
               <p className="mb-0 mt-0.5">{item.start_date}–{item.return_date} · {item.rental_days} hari · {money(item.unit_price_per_day)}/unit/hari · Subtotal {money(item.subtotal)}</p>
             </div>)}
-            {pendingQris && <p className="mb-0 mt-1 text-[11px] font-semibold text-[#8F4528]">QRIS Pending · periksa dana masuk pada aplikasi merchant/mutasi bank.</p>}
+            {pendingQris && <p className="mb-0 mt-1 text-[11px] font-semibold text-secondary">QRIS Pending · periksa dana masuk pada aplikasi merchant/mutasi bank.</p>}
           </div>
           <div className="flex flex-wrap gap-2">
             {pendingQris
-              ? <button type="button" disabled={!qrisImage || savingId === rental.id} onClick={() => openQris(rental)} className="h-9 rounded-lg bg-[#8F4528] px-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">Verifikasi QRIS</button>
+              ? <button type="button" disabled={!qrisImage || savingId === rental.id} onClick={() => openQris(rental)} className="h-9 rounded-lg bg-secondary px-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">Verifikasi QRIS</button>
               : <>
-                <button type="button" disabled={savingId === rental.id} onClick={() => setCashDialog({ rental, ...paymentRequestKey(rental.id) })} className="h-9 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-[#24211F] disabled:opacity-50">Bayar tunai</button>
-                <button type="button" disabled={!qrisImage || savingId === rental.id} onClick={() => openQris(rental).catch((error) => notify(errorMessage(error), 'error'))} className="h-9 rounded-lg bg-[#8F4528] px-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">Bayar QRIS statis</button>
+                <button type="button" disabled={savingId === rental.id} onClick={() => setCashDialog({ rental, ...paymentRequestKey(rental.id) })} className="h-9 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-secondary disabled:opacity-50">Bayar tunai</button>
+                <button type="button" disabled={!qrisImage || savingId === rental.id} onClick={() => openQris(rental).catch((error) => notify(errorMessage(error), 'error'))} className="h-9 rounded-lg bg-secondary px-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">Bayar QRIS statis</button>
               </>}
           </div>
         </article>

@@ -58,7 +58,7 @@ export default function PaymentReceipt({ payment, transaction, onClose }) {
       <p className="mb-0 mt-3 text-[10px] text-slate-500">Bukti ini menampilkan status Payment dari ledger, bukan status Order atau Rental.</p>
       <div className="mt-5 flex justify-end gap-2">
         <button type="button" onClick={onClose} className="h-9 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-600">Tutup</button>
-        <button type="button" onClick={handlePrint} className="inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-3 text-xs font-semibold text-white"><Printer size={14} />Cetak struk</button>
+        <button type="button" onClick={handlePrint} className="inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-3 text-xs font-semibold text-secondary"><Printer size={14} />Cetak struk</button>
       </div>
     </section>
   </div>

@@ -11,7 +11,7 @@ export function AboutCustomerPage() {
         <h1 className="mb-4 text-3xl font-bold leading-tight text-navy max-sm:text-2xl">Teman persiapan sebelum melangkah ke alam.</h1>
         <p className="text-sm leading-relaxed text-[#566274]">Arutala Adventure melayani kebutuhan perlengkapan outdoor di wilayah Sikur, Lombok Timur. Pelanggan dapat melihat pilihan produk dan tarif sewa pada katalog prototipe ini.</p>
         <p className="text-sm leading-relaxed text-[#566274]">Konfirmasi stok, ukuran, dan jadwal tetap perlu dilakukan langsung dengan toko. Data situs ini belum terhubung ke inventori produksi.</p>
-        <Link to="/katalog" className="mt-3 inline-flex min-h-11 items-center rounded-lg bg-primary px-5 text-sm font-semibold text-white transition hover:bg-[#E7650D]">Lihat katalog</Link>
+        <Link to="/katalog" className="mt-3 inline-flex min-h-11 items-center rounded-lg bg-primary px-5 text-sm font-semibold text-secondary transition hover:bg-secondary hover:text-white">Lihat katalog</Link>
       </div>
       <CustomerImage
         src="https://images.unsplash.com/photo-1510312305653-8ed496efae75?auto=format&fit=crop&w=1200&q=85"
@@ -19,7 +19,7 @@ export function AboutCustomerPage() {
         className="aspect-4/3 rounded-2xl border border-[#DDE2E9]"
       />
     </div>
-    <div className="mt-10 rounded-xl border border-orange-200 bg-orange-50 p-4 text-sm leading-relaxed text-[#7D3B0E]">
+    <div className="mt-10 rounded-xl border border-sand bg-sand/40 p-4 text-sm leading-relaxed text-secondary">
       <div className="flex gap-2">
         <ShieldAlert size={18} className="mt-0.5 shrink-0" />
         <p className="m-0"><b>Informasi prototipe:</b> harga dan ketersediaan yang ditampilkan merupakan data contoh. Pesanan online belum dikonfirmasi toko dan belum memproses pembayaran.</p>
@@ -40,7 +40,7 @@ export function ContactCustomerPage() {
         <p className="flex items-center gap-3 text-sm text-[#566274]"><Phone size={17} className="text-primary" />0853-3379-6838</p>
         <p className="flex items-center gap-3 text-sm text-[#566274]"><AtSign size={17} className="text-primary" />@arutala.adventure</p>
         <p className="flex items-center gap-3 text-sm text-[#566274]"><Clock3 size={17} className="text-primary" />08.00–22.00 · informasi contoh</p>
-        <a href="tel:+6285333796838" className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-lg bg-navy px-4 text-sm font-semibold text-white transition hover:bg-[#263D62]">
+        <a href="tel:+6285333796838" className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-lg bg-navy px-4 text-sm font-semibold text-white transition hover:bg-secondary hover:text-white">
           <Phone size={15} />Hubungi toko
         </a>
       </section>
@@ -65,14 +65,14 @@ export function CustomerGalleryPage() {
     <h1 className="mb-2 text-3xl font-bold tracking-tight text-navy max-sm:text-2xl">Perlengkapan untuk cerita di alam terbuka</h1>
     <p className="mb-8 max-w-2xl text-sm leading-relaxed text-[#566274]">Lihat pilihan perlengkapan yang tersedia di katalog. Foto berikut adalah ilustrasi produk pada prototipe, bukan dokumentasi stok aktual.</p>
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {customerProducts.map((product) => <article key={product.id} className="overflow-hidden rounded-xl border border-[#DDE2E9] bg-white shadow-[0_3px_14px_rgba(23,43,77,0.05)]">
+      {customerProducts.map((product) => <article key={product.id} className="overflow-hidden rounded-xl border border-[#DDE2E9] bg-white shadow-[0_3px_14px_rgba(77,42,0,0.05)]">
         <CustomerImage src={product.image} alt={product.imageAlt} className="aspect-4/3" />
         <div className="flex items-center justify-between gap-3 p-4">
           <div>
             <h2 className="m-0 text-sm font-semibold text-navy">{product.name}</h2>
             <p className="mb-0 mt-1 text-xs text-[#566274]">{product.category}</p>
           </div>
-          <Link to={`/produk/${product.id}`} className="shrink-0 text-xs font-semibold text-[#C94F08] hover:underline">Lihat produk</Link>
+          <Link to={`/produk/${product.id}`} className="shrink-0 text-xs font-semibold text-secondary hover:underline">Lihat produk</Link>
         </div>
       </article>)}
     </div>
