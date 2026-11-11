@@ -30,6 +30,24 @@ export async function adminApiRequest(path, { method = 'GET', body, token, idemp
   return payload
 }
 
+export async function adminApiUpload(path, { method = 'POST', file, body = {}, token } = {}) {
+  const headers = { Accept: 'application/json' }
+  if (token) headers.Authorization = `Bearer ${token}`
+
+  const formData = new FormData()
+  if (file) formData.append('file', file)
+  Object.entries(body).forEach(([key, value]) => formData.append(key, String(value)))
+
+  const response = await fetch(`${API_BASE_URL}${path}`, { method, headers, body: formData })
+  if (response.status === 204) return null
+
+  const payload = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    throw new AdminApiError(payload.error?.message || 'Permintaan ke server gagal.', response.status)
+  }
+  return payload
+}
+
 export function readAdminToken() {
   return sessionStorage.getItem(ADMIN_TOKEN_KEY)
 }

@@ -4,7 +4,7 @@ import { Plus, Search, Trash2, Pencil, PackageOpen } from 'lucide-react'
 import AdminRecordDialog from '../../components/AdminRecordDialog'
 import { useAdminDemoStore } from '../../components/useAdminDemoStore'
 import { useAdminAuth } from '../../components/admin-auth-context'
-import { adminApiRequest, readAdminToken } from '../../lib/admin-api'
+import { adminApiRequest, adminApiUpload, readAdminToken } from '../../lib/admin-api'
 import { money, rentalDays, readLocal } from '../../lib/customer-shop'
 
 const activeStatuses = new Set(['Menunggu konfirmasi', 'Dikonfirmasi', 'Diproses'])
@@ -31,6 +31,7 @@ function normalizeProduct(product) {
     rentPricePerDay: Number(product.rent_price_per_day),
     saleStock: Number(product.sale_stock),
     rentalStock: Number(product.rental_stock),
+    photos: product.photos || [],
     image: product.image_url || '',
     imageAlt: product.image_alt || product.name,
   }
@@ -208,10 +209,12 @@ export default function AdminSectionPage({ section }) {
       if (!category) return 'Pilih kategori yang tersedia.'
       if (viewData.products.some((product) => product.name.toLowerCase() === name.toLowerCase() && product.id !== dialog?.record?.id)) return 'Nama produk sudah digunakan.'
       if (isCatalogSection) {
+        let savedProduct = null
         try {
-          const product = await adminApiRequest(dialog?.record ? `/products/${dialog.record.slug}` : '/products', {
+          const token = readAdminToken()
+          savedProduct = await adminApiRequest(dialog?.record ? `/products/${dialog.record.slug}` : '/products', {
             method: dialog?.record ? 'PATCH' : 'POST',
-            token: readAdminToken(),
+            token,
             body: {
               product: {
                 category_id: category.id,
@@ -222,11 +225,44 @@ export default function AdminSectionPage({ section }) {
                 sale_stock: Number(values.saleStock),
                 rental_stock: Number(values.rentalStock),
                 featured: dialog?.record?.featured ?? false,
-                image_url: values.image?.trim() || null,
-                image_alt: name,
               },
             },
           })
+          const newPhotoIds = new Map()
+          for (const [index, file] of (values.newPhotos || []).entries()) {
+            const photo = await adminApiUpload(`/products/${savedProduct.slug}/photos`, {
+              file,
+              token,
+              body: { is_primary: false },
+            })
+            newPhotoIds.set(`new-${index}`, photo.id)
+          }
+
+          for (const [photoId, file] of Object.entries(values.photoReplacements || {})) {
+            if ((values.deletedPhotoIds || []).includes(Number(photoId))) continue
+            const photo = await adminApiUpload(`/products/${savedProduct.slug}/photos/${photoId}`, {
+              method: 'PATCH',
+              file,
+              token,
+            })
+            if (photo.cleanup_warning) notify(photo.cleanup_warning)
+          }
+
+          const primaryPhotoId = newPhotoIds.get(values.primaryPhotoKey)
+            || (values.primaryPhotoKey && !values.primaryPhotoKey.startsWith('new-') ? Number(values.primaryPhotoKey) : null)
+          if (primaryPhotoId) {
+            await adminApiRequest(`/products/${savedProduct.slug}/photos/${primaryPhotoId}`, {
+              method: 'PATCH',
+              token,
+              body: { is_primary: true },
+            })
+          }
+
+          for (const photoId of values.deletedPhotoIds || []) {
+            await adminApiRequest(`/products/${savedProduct.slug}/photos/${photoId}`, { method: 'DELETE', token })
+          }
+
+          const product = await adminApiRequest(`/products/${savedProduct.slug}`, { token })
           const normalizedProduct = normalizeProduct(product)
           setCatalogData((current) => ({
             ...current,
@@ -237,6 +273,30 @@ export default function AdminSectionPage({ section }) {
           notify(dialog?.record ? 'Perubahan produk disimpan.' : 'Produk ditambahkan.')
           return ''
         } catch (error) {
+          if (savedProduct) {
+            try {
+              const product = await adminApiRequest(`/products/${savedProduct.slug}`, { token: readAdminToken() })
+              const normalizedProduct = normalizeProduct(product)
+              setCatalogData((current) => ({
+                ...current,
+                products: dialog?.record
+                  ? current.products.map((item) => item.id === normalizedProduct.id ? normalizedProduct : item)
+                  : current.products.some((item) => item.id === normalizedProduct.id)
+                    ? current.products.map((item) => item.id === normalizedProduct.id ? normalizedProduct : item)
+                    : [...current.products, normalizedProduct],
+              }))
+              if (!dialog?.record) {
+                notify(`Produk tersimpan, tetapi pengelolaan foto belum selesai: ${apiErrorMessage(error)}. Buka kembali produk untuk melanjutkan.`)
+                return ''
+              }
+              return {
+                error: `${apiErrorMessage(error)} Data produk yang berhasil disimpan sudah dimuat ulang; pilih ulang perubahan foto yang belum selesai.`,
+                photos: product.photos || [],
+              }
+            } catch (refreshError) {
+              return `${apiErrorMessage(error)} Data foto belum dapat dimuat ulang: ${apiErrorMessage(refreshError)}`
+            }
+          }
           return apiErrorMessage(error)
         }
       }

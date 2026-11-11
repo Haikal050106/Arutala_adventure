@@ -1,5 +1,6 @@
 class Product < ApplicationRecord
   belongs_to :category
+  has_many :product_photos, -> { order(:position, :id) }, dependent: :destroy
 
   before_validation :generate_slug, on: :create
 
@@ -12,6 +13,10 @@ class Product < ApplicationRecord
 
   def available?
     sale_stock.positive? || rental_stock.positive?
+  end
+
+  def primary_photo
+    product_photos.find_by(is_primary: true) || product_photos.first
   end
 
   private

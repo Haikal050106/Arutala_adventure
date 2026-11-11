@@ -22,6 +22,7 @@ export default function ProductDetail() {
   const [serverRentalAvailability, setServerRentalAvailability] = useState(null)
   const [availabilityLoading, setAvailabilityLoading] = useState(false)
   const [availabilityError, setAvailabilityError] = useState('')
+  const [selectedPhotoId, setSelectedPhotoId] = useState('')
   const mode = searchParams.get('jenis') === 'sewa' ? 'rental' : 'purchase'
   const days = rentalDays(startDate, returnDate)
   const available = mode === 'purchase'
@@ -30,6 +31,10 @@ export default function ProductDetail() {
       ? getRentalAvailable(productId, startDate, returnDate)
       : 0
   const similar = useMemo(() => products.filter((item) => item.category === product?.category && item.id !== productId).slice(0, 3), [productId, products, product?.category])
+
+  useEffect(() => {
+    setSelectedPhotoId('')
+  }, [productId])
 
   useEffect(() => {
     if (mode !== 'rental' || !product || !days) {
@@ -66,11 +71,18 @@ export default function ProductDetail() {
     if (result.ok) navigate('/keranjang')
   }
   const activeOrders = orders.filter((order) => order.status === 'Menunggu konfirmasi' || order.status === 'Dikonfirmasi' || order.status === 'Diproses').length
+  const productPhotos = product.photos || []
+  const selectedPhoto = productPhotos.find((photo) => String(photo.id) === selectedPhotoId)
+    || productPhotos.find((photo) => photo.is_primary)
+    || productPhotos[0]
 
   return <div className="mx-auto max-w-7xl px-5 py-8 max-md:px-4 max-md:py-5">
     <Link to="/katalog" className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-[#566274] hover:text-navy"><ArrowLeft size={16} />Kembali ke katalog</Link>
     <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
-      <div className="overflow-hidden rounded-2xl border border-[#DDE2E9] bg-white shadow-[0_4px_18px_rgba(77,42,0,0.07)]"><CustomerImage src={product.image} alt={product.imageAlt} className="aspect-4/3" /><div className="flex items-center justify-between gap-3 border-t border-[#DDE2E9] px-4 py-3 text-xs text-[#566274]"><span>{product.category} · Foto {product.image_url ? 'produk' : 'ilustrasi kategori'}</span><span className="rounded-full bg-canvas px-2.5 py-1">Katalog API</span></div></div>
+      <div>
+        <div className="overflow-hidden rounded-2xl border border-[#DDE2E9] bg-white shadow-[0_4px_18px_rgba(77,42,0,0.07)]"><CustomerImage src={selectedPhoto?.secure_url || product.image} alt={selectedPhoto?.alt_text || product.imageAlt} className="aspect-4/3" /><div className="flex items-center justify-between gap-3 border-t border-[#DDE2E9] px-4 py-3 text-xs text-[#566274]"><span>{product.category} · Foto {productPhotos.length ? 'produk' : product.image_url ? 'produk' : 'ilustrasi kategori'}</span><span className="rounded-full bg-canvas px-2.5 py-1">Katalog API</span></div></div>
+        {productPhotos.length > 1 && <div className="mt-3 flex gap-2 overflow-x-auto" aria-label="Galeri foto produk">{productPhotos.map((photo) => <button key={photo.id} type="button" onClick={() => setSelectedPhotoId(String(photo.id))} aria-label={`Tampilkan foto ${photo.position}`} aria-pressed={String(selectedPhoto?.id) === String(photo.id)} className={`size-16 shrink-0 overflow-hidden rounded-lg border-2 ${String(selectedPhoto?.id) === String(photo.id) ? 'border-primary' : 'border-transparent'}`}><CustomerImage src={photo.secure_url} alt={photo.alt_text || product.name} className="size-full" /></button>)}</div>}
+      </div>
       <section><p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-primary">{product.category}</p><h1 className="mb-3 text-3xl font-bold leading-tight tracking-tight text-navy max-sm:text-2xl">{product.name}</h1><p className="mb-6 text-sm leading-relaxed text-[#566274]">{product.description}</p>
         <div className="mb-5 inline-flex rounded-lg bg-white p-1 shadow-sm ring-1 ring-[#DDE2E9]"><button type="button" onClick={() => setMode('purchase')} className={`rounded-md px-4 py-2.5 text-sm font-semibold ${mode === 'purchase' ? 'bg-navy text-white' : 'text-[#566274]'}`}>Beli</button><button type="button" onClick={() => setMode('rental')} className={`rounded-md px-4 py-2.5 text-sm font-semibold ${mode === 'rental' ? 'bg-navy text-white' : 'text-[#566274]'}`}>Sewa</button></div>
         <div className="mb-5 rounded-xl border border-[#DDE2E9] bg-white p-4"><p className="mb-1 text-xs font-medium text-[#566274]">{mode === 'purchase' ? 'Harga jual' : 'Harga sewa'}</p><p className="m-0 text-2xl font-bold text-navy">{money(mode === 'purchase' ? product.salePrice : product.rentPricePerDay)}{mode === 'rental' && <span className="ml-1 text-sm font-medium text-[#566274]">/ hari</span>}</p>

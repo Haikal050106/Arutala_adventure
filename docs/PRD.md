@@ -48,6 +48,7 @@ Arutala Adventure adalah website pelanggan untuk menemukan perlengkapan pendakia
     ├── app/
     ├── config/
     ├── db/
+    ├── .env.example
     ├── test/
     └── Gemfile
 ```
@@ -55,7 +56,7 @@ Arutala Adventure adalah website pelanggan untuk menemukan perlengkapan pendakia
 ## Fitur yang Sudah Tersedia
 
 - **Beranda pelanggan:** pengenalan Arutala Adventure, akses ke pembelian dan penyewaan, kategori, produk unggulan, dan ajakan menghubungi toko.
-- **Katalog dan detail produk:** pencarian nama/kategori, filter kategori dari API, pilihan beli atau sewa, foto API dengan fallback ilustrasi, deskripsi, harga dan stok katalog dari API, serta estimasi ketersediaan browser.
+- **Katalog dan detail produk:** pencarian nama/kategori, filter kategori dari API, pilihan beli atau sewa, galeri URL foto Cloudinary dengan fallback ilustrasi kategori, deskripsi, harga dan stok katalog dari API, serta estimasi ketersediaan browser.
 - **Keranjang:** menambah produk, mengubah jumlah, menghapus item, dan melihat subtotal. Keranjang tetap lokal; harga dan stok order pembelian selalu divalidasi ulang di server.
 - **Checkout pembelian:** pelanggan yang masuk dapat membuat order barang melalui `POST /api/v1/customer/orders`. Server menentukan pelanggan dari sesi bearer, menghitung harga/total dari katalog, memvalidasi stok termasuk order pending, dan mengembalikan nomor serta status pesanan. Kunci idempotensi mencegah retry membuat order ganda.
 - **Booking penyewaan:** pelanggan yang masuk dapat mengirim item sewa dari keranjang secara terpisah melalui `POST /api/v1/customer/rentals`. Server menghitung tarif dan total, memvalidasi tanggal (mulai tidak boleh lampau dan tanggal kembali harus setelah mulai), alamat, jumlah, dan ketersediaan periode. Booking `pending_confirmation` menahan kapasitas per tanggal tanpa mengurangi stok fisik; konfirmasi staf memotong stok tersedia satu kali. Idempotency key mencegah retry membuat booking ganda.
@@ -64,6 +65,7 @@ Arutala Adventure adalah website pelanggan untuk menemukan perlengkapan pendakia
 - **Pembayaran pelanggan di toko:** checkout pembelian atau booking sewa hanya membuat transaksi dengan status pembayaran belum lunas. Pelanggan membayar langsung di toko Arutala Adventure; kasir memverifikasi uang yang diterima lalu mencatat pembayaran melalui POS. Halaman konfirmasi dan akun menampilkan status pesanan serta ringkasan pembayaran dari backend/Payment Ledger. Tidak ada redirect, Snap popup, tombol pembayaran online, callback frontend, atau pemanggilan API pembayaran Midtrans dari halaman pelanggan.
 - **Konfirmasi dan riwayat pembelian:** halaman `/pesanan/:orderId` dan akun pelanggan memuat order dari API yang dibatasi ke pemiliknya. Pelanggan dapat membatalkan pesanan berstatus menunggu konfirmasi atau dikonfirmasi melalui endpoint milik pelanggan; pembatalan pada status terkonfirmasi mengembalikan stok secara atomik. Pesanan yang sedang diproses, selesai, atau sudah dibatalkan tidak dapat dibatalkan. Item sewa dalam keranjang tidak ikut checkout dan tetap tersimpan.
 - **Akun pelanggan:** registrasi dan login melalui API Rails, profil dari server, serta logout yang mencabut sesi server. Riwayat pembelian dan booking sewa dimuat dari endpoint pelanggan sesuai kepemilikan.
+- **Foto produk:** satu produk dapat memiliki hingga 10 foto yang tersimpan di tabel `product_photos` bersama `secure_url`, `public_id`, teks alternatif, urutan, dan status foto utama. Admin dapat mengunggah beberapa JPEG/PNG/WebP (maksimal 10 MB per foto), melihat preview, memilih foto utama, mengganti, dan menghapus foto melalui endpoint Rails terlindungi. Backend memakai Cloudinary Ruby SDK dengan folder `arutala-adventure/produk`; foto lama baru dibersihkan setelah penggantinya tersimpan.
 - **Informasi usaha:** halaman tentang, galeri ilustrasi perlengkapan, lokasi, dan kontak toko.
 - **Navigasi responsif:** navigasi pelanggan melalui React Router, header mobile, logo transparan, dan footer dengan tautan penting.
 - **Batasan operasional:** Midtrans Sandbox, endpoint backend, dan webhook signature tetap dipertahankan untuk kompatibilitas Payment Ledger/notifikasi lama, tetapi bukan metode pembayaran pada website pelanggan. Refund, pemrosesan refund sebagian/chargeback, dan sinkronisasi booking demo sewa lama yang sudah tersimpan lokal belum tersedia. Pembayaran sukses yang datang terlambat setelah transaksi dibatalkan tetap dicatat di ledger, tetapi tidak menghidupkan kembali transaksi atau memenuhi pesanan otomatis.
@@ -72,7 +74,7 @@ Arutala Adventure adalah website pelanggan untuk menemukan perlengkapan pendakia
 
 - Keranjang disimpan pada browser; order pembelian dan booking sewa baru serta riwayat pelanggan dibaca dari backend. Booking demo sewa yang sudah tersimpan lokal tidak otomatis dimigrasikan.
 - Checkout pelanggan tidak memulai Midtrans dan tidak mengubah Payment menjadi lunas. Status internal Order/Rental awal tetap `pending_confirmation` untuk mempertahankan aturan reservasi, stok, pembatalan, dan fulfillment; untuk transaksi yang belum lunas, website pelanggan menampilkan status “Menunggu Pembayaran”. Pembayaran tunai dan QRIS statis hanya dicatat melalui POS oleh Admin/Kasir setelah diterima/diperiksa. Gambar QRIS disimpan di localStorage browser POS, sehingga perlu diunggah pada setiap browser/perangkat kasir. Endpoint dan webhook Midtrans tetap ada untuk kompatibilitas backend/ledger lama, tetapi frontend pelanggan tidak memanggil endpoint pembayaran tersebut. Refund belum tersedia. Endpoint order pembelian dan rental pelanggan terpisah dan hanya menerima role `customer`; endpoint order/rental operasional tetap mensyaratkan role Admin/Kasir.
-- Foto produk dan galeri menggunakan ilustrasi dari Unsplash, bukan dokumentasi stok aktual.
+- Foto produk yang belum memiliki foto Cloudinary menggunakan fallback ilustrasi kategori; galeri usaha tetap memakai ilustrasi.
 
 ### Konfigurasi Midtrans Sandbox
 
@@ -80,6 +82,12 @@ Arutala Adventure adalah website pelanggan untuk menemukan perlengkapan pendakia
 - Webhook yang didaftarkan untuk integrasi lama: `POST /api/v1/webhooks/midtrans`. Endpoint ini tidak memakai sesi User; signature diverifikasi sebelum API status Midtrans dipanggil.
 - Endpoint pembuatan pembayaran Midtrans untuk pelanggan sudah dinonaktifkan. `POST /api/v1/customer/payments/:payment_id/refresh` hanya dipertahankan untuk ledger/payment gateway lama dan memerlukan bearer token pelanggan serta membatasi akses pada transaksi miliknya. Website pelanggan tidak memanggil endpoint Midtrans.
 - Checkout menggunakan saldo dari database; nominal frontend tidak menjadi sumber otoritatif. Callback hanya memperbarui Payment Ledger, bukan status pemenuhan atau stok.
+
+### Konfigurasi Cloudinary
+
+- Backend memerlukan `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, dan `CLOUDINARY_API_SECRET`. Nilai lokal dapat diisi pada `backend/.env` berdasarkan `backend/.env.example`; file `.env` diabaikan Git. Pada deployment, masukkan ketiganya sebagai secret environment Rails/Kamal.
+- API Secret hanya digunakan Cloudinary Ruby SDK di backend; jangan menaruhnya di frontend, `VITE_*`, browser, atau repository. Folder upload produk adalah `arutala-adventure/produk`.
+- Endpoint upload, ganti, dan hapus foto memerlukan sesi Admin sesuai otorisasi CRUD produk yang sudah ada. Response katalog hanya menyertakan URL aman dan metadata tampilan, bukan `public_id`.
 
 ## Struktur Menu dan Navigasi
 
@@ -113,7 +121,7 @@ Daftar berikut menggambarkan cakupan Admin bertahap. Login dan otorisasi role su
 |---|---|---|
 | Login Admin | Login staf dan membatasi akses berdasarkan role Admin/Kasir. | Tersedia pada `/admin/login` dengan bearer token backend; akun Admin pertama dibuat melalui task Rails, akun tidak ditanam di source code. |
 | Dashboard | Melihat pendapatan aktual dari Payment sukses, transaksi pembelian/penyewaan, pelanggan online/offline, grafik pendapatan, produk terlaris, barang paling sering disewa, antrean pesanan/booking, dan filter tanggal. | Tersedia pada `/admin` dari `GET /api/v1/dashboard` menggunakan database Rails dan role Admin/Kasir. Pendapatan dihitung satu kali per Payment berstatus `succeeded`, dikelompokkan terpisah untuk Order/Rental berdasarkan `paid_at`; jumlah transaksi, pelanggan, item terlaris, dan antrean memakai rentang tanggal yang dipilih. |
-| Produk | Mencari, memfilter, menambah, mengubah, dan menghapus katalog, harga, stok, kategori, deskripsi, serta URL foto. | Tersedia pada `/admin/products`; daftar dan CRUD tersambung ke API Rails (`/api/v1/products`) dan memerlukan sesi Admin untuk perubahan. |
+| Produk | Mencari, memfilter, menambah, mengubah, dan menghapus katalog, harga, stok, kategori, deskripsi, serta banyak foto. | Tersedia pada `/admin/products`; daftar dan CRUD tersambung ke API Rails (`/api/v1/products`) dan memerlukan sesi Admin untuk perubahan. Form menyediakan preview, pilih foto utama, ganti/hapus foto; upload memakai Cloudinary dari backend. |
 | Kategori | Mencari dan melakukan CRUD kategori. | Tersedia pada `/admin/categories`; daftar dan CRUD tersambung ke API Rails (`/api/v1/categories`) dan kategori yang masih dipakai produk tidak dapat dihapus. |
 | Pesanan pelanggan | Mencari dan memfilter pesanan berdasarkan status, termasuk pesanan yang dibatalkan pelanggan. | Tersedia pada `/admin/orders`; daftar dimuat dari `GET /api/v1/orders` menggunakan sesi Admin/Kasir. Status backend seperti `cancelled` ditampilkan sebagai `Dibatalkan`, konsisten dengan akun pelanggan. Pesanan yang sama tidak digabungkan dengan data demo lokal. |
 | Penyewaan & pengembalian | Melihat/filter seluruh booking, detail pelanggan dan item, menyetujui/menolak, mencatat serah-terima dan pengembalian beserta kondisi tiap barang, serta melihat riwayat status dan pembayaran. | Kasir membuat penyewaan baru pada tab **Kasir Penyewaan** di `/admin/pos`; riwayat booking online dan transaksi sewa ada pada tab **Riwayat Penyewaan**/sidebar `/admin/rentals`. Semua memakai halaman/model dan API Rails yang sama. Booking pelanggan online tetap menunggu persetujuan Admin/Kasir. Booking yang dibuat kasir melalui POS langsung melewati transisi konfirmasi backend sebelum pembayaran, dengan validasi ketersediaan ulang. Pembayaran Cash/QRIS tercatat pada ledger; QRIS tetap pending sampai kasir memverifikasi dana. Hanya booking lunas dapat diserahterimakan; saat itu stok dikurangi satu kali. Pembatalan sebelum serah-terima melepas reservasi tanpa mengubah stok. Pengembalian menambah stok hanya untuk unit berkondisi baik; barang rusak/hilang tidak distok kembali. Keterlambatan ditandai dari tanggal kembali terjadwal; denda belum tersedia karena belum ada aturan tarif denda. |
@@ -171,6 +179,5 @@ Daftar berikut adalah usulan pengembangan, bukan fitur yang sudah tersedia atau 
 2. Edit dan hapus produk, validasi stok, dan pengurangan stok yang konsisten setelah checkout.
 3. Definisikan kebijakan denda keterlambatan (tarif, satuan, batas, dan persetujuan) sebelum mengimplementasikan perhitungan atau penagihan denda.
 4. Integrasikan UI akun pelanggan dengan endpoint autentikasi backend; tinjau konfigurasi deployment, pembatasan percobaan login, verifikasi email, dan mitigasi XSS sebelum penggunaan produksi.
-5. Upload/manajemen foto produk, bukan hanya pemetaan kategori ke foto eksternal.
-6. Laporan pendapatan dan ekspor transaksi.
-7. Automated test untuk checkout, persistensi, pencarian, serta navigasi.
+5. Laporan pendapatan dan ekspor transaksi.
+6. Automated test untuk checkout, persistensi, pencarian, serta navigasi.

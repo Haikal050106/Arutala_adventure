@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_01_190000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_11_213000) do
   create_table "auth_sessions", force: :cascade do |t|
     t.integer "user_id", null: false
     t.string "token_digest", limit: 64, null: false
@@ -113,6 +113,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_01_190000) do
     t.check_constraint "status IN ('pending', 'succeeded', 'failed', 'refunded')", name: "payments_status_valid"
   end
 
+  create_table "product_photos", force: :cascade do |t|
+    t.integer "product_id", null: false
+    t.string "secure_url", limit: 2048, null: false
+    t.string "public_id", limit: 255, null: false
+    t.string "alt_text", limit: 255, null: false
+    t.integer "position", default: 0, null: false
+    t.boolean "is_primary", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["product_id", "position"], name: "index_product_photos_on_product_id_and_position"
+    t.index ["product_id"], name: "index_product_photos_on_product_id"
+    t.index ["product_id"], name: "index_product_photos_one_primary_per_product", unique: true, where: "is_primary = 1"
+    t.index ["public_id"], name: "index_product_photos_on_public_id", unique: true
+  end
+
   create_table "products", force: :cascade do |t|
     t.integer "category_id", null: false
     t.string "slug", null: false
@@ -211,6 +226,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_01_190000) do
   add_foreign_key "payments", "rentals", on_delete: :restrict
   add_foreign_key "payments", "users", column: "confirmed_by_id", on_delete: :nullify
   add_foreign_key "payments", "users", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "product_photos", "products", on_delete: :cascade
   add_foreign_key "products", "categories"
   add_foreign_key "rental_items", "products", on_delete: :restrict
   add_foreign_key "rental_items", "rentals", on_delete: :cascade

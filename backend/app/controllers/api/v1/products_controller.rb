@@ -6,7 +6,7 @@ module Api
       before_action :set_product, only: %i[show update destroy rental_availability]
 
       def index
-        products = Product.includes(:category).order(:name)
+        products = Product.includes(:category, :product_photos).order(:name)
         products = products.where(category_id: params[:category_id]) if params[:category_id].present?
         products = products.where(featured: params[:featured]) if %w[true false].include?(params[:featured])
         render json: products.map { |product| serialize_product(product) }
@@ -62,7 +62,7 @@ module Api
       private
 
       def set_product
-        @product = Product.includes(:category).find_by!(slug: params[:id])
+        @product = Product.includes(:category, :product_photos).find_by!(slug: params[:id])
       end
 
       def product_params
@@ -73,14 +73,30 @@ module Api
       end
 
       def serialize_product(product)
+        photos = product.product_photos.map { |photo| serialize_photo(photo) }
+        primary_photo = photos.find { |photo| photo[:is_primary] } || photos.first
         product.as_json(only: %i[
           id slug category_id name description sale_price rent_price_per_day sale_stock
           rental_stock featured image_url image_alt created_at updated_at
         ]).merge(
+          "image_url" => primary_photo&.fetch(:secure_url) || product.image_url,
+          "image_alt" => primary_photo&.fetch(:alt_text) || product.image_alt,
+          "photos" => photos
+        ).merge(
           category: { id: product.category.id, name: product.category.name },
           available: product.available?,
           availability_status: product.available? ? "available" : "unavailable"
         )
+      end
+
+      def serialize_photo(photo)
+        {
+          id: photo.id,
+          secure_url: photo.secure_url,
+          alt_text: photo.alt_text,
+          position: photo.position,
+          is_primary: photo.is_primary
+        }
       end
 
       def render_validation_errors(record)

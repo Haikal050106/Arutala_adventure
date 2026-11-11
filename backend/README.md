@@ -28,6 +28,29 @@ Product payloads use `category_id`, `name`, `description`, `sale_price`,
 category and a derived `available`/`availability_status` based on both stock
 counts. Category deletion returns `409 Conflict` while products still refer to it.
 
+### Product photos (Cloudinary)
+
+Set `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET`
+in the Rails process environment. For local development, copy `.env.example` to
+`.env` under `backend/` and fill in the values; `.env` is ignored by Git.
+Never put these credentials in `frontend/.env*`, browser code, or a Vite
+`VITE_` variable. Kamal deployment reads the same names as server secrets.
+
+Uploads use the `arutala-adventure/produk` Cloudinary folder. The API accepts
+JPEG, PNG, and WebP files up to 10 MB, with at most 10 photos per product:
+
+- `POST /api/v1/products/:slug/photos` with multipart field `file`
+- `PATCH /api/v1/products/:slug/photos/:id` with optional multipart `file`;
+  send JSON `is_primary: true` to select the main image
+- `DELETE /api/v1/products/:slug/photos/:id`
+
+Photo mutations require the same Admin-only authorization as product CRUD.
+Catalog responses include ordered `photos` metadata and expose the main
+`secure_url` as the compatibility `image_url`. The database retains the
+Cloudinary `public_id` for server-side replacement/deletion; it is not returned
+to storefront clients. Replacements upload and save the new asset before
+cleaning up the old Cloudinary asset.
+
 ## Customers, orders, and rentals
 
 - Customers: `GET/POST /api/v1/customers` and

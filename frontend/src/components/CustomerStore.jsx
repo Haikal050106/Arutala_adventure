@@ -169,6 +169,7 @@ function normalizeProduct(product) {
     rentPricePerDay: Number(product.rent_price_per_day),
     saleStock: Number(product.sale_stock),
     rentalStock: Number(product.rental_stock),
+    photos: product.photos || [],
     image: product.image_url || fallbackImage || '',
     imageAlt: product.image_alt || `${product.name}, kategori ${category}`,
   }
