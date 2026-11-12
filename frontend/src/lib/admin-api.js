@@ -38,12 +38,23 @@ export async function adminApiUpload(path, { method = 'POST', file, body = {}, t
   if (file) formData.append('file', file)
   Object.entries(body).forEach(([key, value]) => formData.append(key, String(value)))
 
-  const response = await fetch(`${API_BASE_URL}${path}`, { method, headers, body: formData })
+  let response
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, { method, headers, body: formData })
+  } catch {
+    throw new AdminApiError('Tidak dapat terhubung ke API Rails untuk mengunggah foto. Periksa server dan konfigurasi CORS.', 0)
+  }
   if (response.status === 204) return null
 
-  const payload = await response.json().catch(() => ({}))
+  const payload = await response.json().catch(() => null)
   if (!response.ok) {
-    throw new AdminApiError(payload.error?.message || 'Permintaan ke server gagal.', response.status)
+    throw new AdminApiError(
+      payload?.error?.message || `API Rails gagal memproses foto (HTTP ${response.status}). Periksa log server untuk detail.`,
+      response.status,
+    )
+  }
+  if (!payload || typeof payload !== 'object' || !Number.isInteger(payload.id) || !payload.secure_url) {
+    throw new AdminApiError('API Rails tidak mengembalikan metadata foto yang valid.', response.status)
   }
   return payload
 }

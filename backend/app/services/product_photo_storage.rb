@@ -1,3 +1,5 @@
+require "faraday"
+
 class ProductPhotoStorage
   FOLDER = "arutala-adventure/produk"
   MAX_FILE_SIZE = 10.megabytes
@@ -25,8 +27,10 @@ class ProductPhotoStorage
     raise StorageError, "Cloudinary tidak mengembalikan identitas foto yang valid." if secure_url.blank? || public_id.blank?
 
     { secure_url: secure_url, public_id: public_id }
-  rescue CloudinaryException, Faraday::Error => error
-    raise StorageError, "Cloudinary menolak atau gagal menerima unggahan foto: #{error.message}"
+  rescue CloudinaryException
+    raise StorageError, "Cloudinary menolak unggahan. Periksa kredensial Cloudinary dan konfigurasi cloud pada backend."
+  rescue Faraday::Error
+    raise StorageError, "Koneksi ke Cloudinary gagal. Periksa koneksi jaringan server lalu coba lagi."
   end
 
   def self.destroy!(public_id)
@@ -35,8 +39,10 @@ class ProductPhotoStorage
     return if %w[ok not found].include?(result["result"])
 
     raise StorageError, "Foto tidak dapat dihapus dari Cloudinary."
-  rescue CloudinaryException, Faraday::Error => error
-    raise StorageError, "Cloudinary gagal menghapus foto: #{error.message}"
+  rescue CloudinaryException
+    raise StorageError, "Cloudinary menolak penghapusan. Periksa kredensial Cloudinary pada backend."
+  rescue Faraday::Error
+    raise StorageError, "Koneksi ke Cloudinary gagal saat menghapus foto. Periksa jaringan server lalu coba lagi."
   end
 
   def self.validate_file!(file)

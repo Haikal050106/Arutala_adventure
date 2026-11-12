@@ -34,7 +34,7 @@ module Api
         render_error("cloudinary_not_configured", error.message, :service_unavailable)
       rescue ProductPhotoStorage::StorageError => error
         Rails.logger.error("Cloudinary photo upload failed: #{error.message}")
-        render_error("photo_upload_failed", "Foto tidak dapat diunggah. Silakan coba lagi.", :bad_gateway)
+        render_error("photo_upload_failed", error.message, :bad_gateway)
       rescue ActiveRecord::RecordInvalid => error
         cleanup_new_photo(storage_result)
         render_error("validation_failed", "Foto produk tidak dapat disimpan.", :unprocessable_entity,
@@ -68,7 +68,7 @@ module Api
         render_error("cloudinary_not_configured", error.message, :service_unavailable)
       rescue ProductPhotoStorage::StorageError => error
         Rails.logger.error("Cloudinary photo replacement failed: #{error.message}")
-        render_error("photo_replacement_failed", "Foto baru tidak dapat disimpan; foto lama tetap dipertahankan.", :bad_gateway)
+        render_error("photo_replacement_failed", "#{error.message} Foto lama tetap dipertahankan.", :bad_gateway)
       rescue ActiveRecord::RecordInvalid => error
         cleanup_new_photo(storage_result)
         render_error("validation_failed", "Perubahan foto tidak dapat disimpan.", :unprocessable_entity,
@@ -91,7 +91,7 @@ module Api
         render_error("cloudinary_not_configured", error.message, :service_unavailable)
       rescue ProductPhotoStorage::StorageError => error
         Rails.logger.error("Cloudinary photo deletion failed: #{error.message}")
-        render_error("photo_deletion_failed", "Foto tidak dapat dihapus. Data foto tetap tersimpan.", :bad_gateway)
+        render_error("photo_deletion_failed", "#{error.message} Data foto tetap tersimpan.", :bad_gateway)
       end
 
       private

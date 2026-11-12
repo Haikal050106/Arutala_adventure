@@ -93,6 +93,62 @@ class ApiV1ProductPhotosTest < ActionDispatch::IntegrationTest
     assert_equal photo.secure_url, @product.reload.image_url
   end
 
+  test "Cloudinary rejection is reported clearly without exposing provider details" do
+    with_storage_stub(:validate_file!, ->(*) { nil }) do
+      with_storage_stub(:configure!, ->(*) { nil }) do
+        with_cloudinary_stub(:upload, ->(*) { raise CloudinaryException, "api_secret=must-not-be-exposed" }) do
+          Tempfile.create([ "cloudinary-rejection", ".jpg" ]) do |tempfile|
+            file = ActionDispatch::Http::UploadedFile.new(
+              tempfile: tempfile,
+              filename: "photo.jpg",
+              type: "image/jpeg"
+            )
+            error = assert_raises(ProductPhotoStorage::StorageError) do
+              ProductPhotoStorage.upload!(file)
+            end
+
+            assert_match "Periksa kredensial Cloudinary", error.message
+            assert_no_match "must-not-be-exposed", error.message
+          end
+        end
+      end
+    end
+  end
+
+  test "missing Cloudinary configuration returns an actionable service error" do
+    with_storage_stub(:validate_file!, ->(*) { nil }) do
+      with_storage_stub(:configure!, ->(*) {
+        raise ProductPhotoStorage::ConfigurationError,
+          "Konfigurasi Cloudinary wajib diisi di backend."
+      }) do
+        post "/api/v1/products/#{@product.slug}/photos", params: { file: uploaded_photo }
+      end
+    end
+
+    assert_response :service_unavailable
+    assert_equal "cloudinary_not_configured", response.parsed_body.dig("error", "code")
+    assert_match "Konfigurasi Cloudinary", response.parsed_body.dig("error", "message")
+  end
+
+  test "failed Cloudinary deletion keeps the database photo and reports the cause" do
+    photo = @product.product_photos.create!(
+      secure_url: "https://res.cloudinary.com/demo/image/upload/original.jpg",
+      public_id: "arutala-adventure/produk/original",
+      alt_text: @product.name,
+      position: 1,
+      is_primary: true
+    )
+    @product.update_columns(image_url: photo.secure_url, image_alt: photo.alt_text)
+    with_storage_stub(:destroy!, ->(*) { raise ProductPhotoStorage::StorageError, "Koneksi ke Cloudinary gagal." }) do
+      delete "/api/v1/products/#{@product.slug}/photos/#{photo.id}"
+    end
+
+    assert_response :bad_gateway
+    assert_equal "Koneksi ke Cloudinary gagal. Data foto tetap tersimpan.", response.parsed_body.dig("error", "message")
+    assert_equal photo.secure_url, photo.reload.secure_url
+    assert_equal photo.secure_url, @product.reload.image_url
+  end
+
   test "photo management requires an admin session" do
     post "/api/v1/products/#{@product.slug}/photos",
       params: { file: uploaded_photo },
@@ -155,11 +211,21 @@ class ApiV1ProductPhotosTest < ActionDispatch::IntegrationTest
   end
 
   def with_storage_stub(method_name, replacement)
-    original = ProductPhotoStorage.method(method_name)
+    with_method_stub(ProductPhotoStorage, method_name, replacement) { yield }
+  end
+
+  def with_cloudinary_stub(method_name, replacement)
+    with_method_stub(Cloudinary::Uploader, method_name, replacement) { yield }
+  end
+
+  def with_method_stub(receiver, method_name, replacement)
+    original = receiver.method(method_name)
+    was_private = receiver.private_methods.include?(method_name)
     implementation = replacement.respond_to?(:call) ? replacement : ->(*) { replacement }
-    ProductPhotoStorage.define_singleton_method(method_name, &implementation)
+    receiver.define_singleton_method(method_name, &implementation)
     yield
   ensure
-    ProductPhotoStorage.define_singleton_method(method_name, original)
+    receiver.define_singleton_method(method_name, original)
+    receiver.private_class_method(method_name) if was_private
   end
 end

@@ -32,7 +32,8 @@ counts. Category deletion returns `409 Conflict` while products still refer to i
 
 Set `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET`
 in the Rails process environment. For local development, copy `.env.example` to
-`.env` under `backend/` and fill in the values; `.env` is ignored by Git.
+`.env` under `backend/`, replace the example placeholders with credentials from
+your Cloudinary account, and restart Rails; `.env` is ignored by Git.
 Never put these credentials in `frontend/.env*`, browser code, or a Vite
 `VITE_` variable. Kamal deployment reads the same names as server secrets.
 
