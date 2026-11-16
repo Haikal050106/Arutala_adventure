@@ -451,7 +451,7 @@ export default function AdminRentalsPage({ mode = 'all' }) {
                 <div className="mt-2 flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600"><span>Kembalian</span><strong className="text-sm text-navy">{money(cashChange)}</strong></div>
                 {Number(cashReceived || 0) < total && <p role="alert" className="mb-0 mt-2 text-xs text-red-700">Uang diterima tidak boleh kurang dari total pembayaran.</p>}
               </div>
-              : <div className="rounded-lg border border-[#E8D6CE] bg-[#FBF6F3] p-3 text-xs text-secondary">
+              : <div className="rounded-lg border border-[#FFD2BF] bg-[#FFF1EA] p-3 text-xs text-secondary">
                 <p className="m-0 font-semibold">Nominal QRIS: {money(total)}</p>
                 {qrisImage
                   ? <img src={qrisImage} alt="QRIS statis toko" className="mx-auto mt-3 max-h-40 w-full rounded-md bg-white object-contain p-2" />

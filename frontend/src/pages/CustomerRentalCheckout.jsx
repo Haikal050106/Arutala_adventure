@@ -69,7 +69,7 @@ export default function CustomerRentalCheckout() {
     <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-primary">Booking pelanggan</p>
     <h1 className="mb-7 text-3xl font-bold tracking-tight text-navy max-sm:text-2xl">Checkout booking sewa</h1>
     <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-      <form onSubmit={submit} className="rounded-xl border border-[#DDE2E9] bg-white p-5 shadow-[0_2px_12px_rgba(77,42,0,0.04)] max-sm:p-4">
+      <form onSubmit={submit} className="rounded-xl border border-[#DDE2E9] bg-white p-5 shadow-[0_2px_12px_rgba(37,37,37,0.04)] max-sm:p-4">
         <h2 className="mb-4 text-base font-semibold text-navy">Informasi penyewa</h2>
         {!profile ? <div className="mb-4 rounded-lg border border-sand bg-sand/40 p-3 text-xs leading-relaxed text-secondary"><div className="flex gap-2"><ShieldAlert size={16} className="mt-0.5 shrink-0" /><span>Masuk atau daftar agar booking terhubung ke akun pelanggan Anda.{authError && <span className="mt-1 block">{authError}</span>}</span></div><Link to="/masuk?next=/checkout-sewa" className="mt-2 inline-flex font-semibold underline">Masuk / daftar</Link></div> : <div className="mb-4 rounded-lg bg-canvas p-3 text-xs text-[#566274]"><b className="block text-navy">{profile.name}</b><span>{profile.email} · {profile.phone}</span></div>}
         <label className="block text-xs font-semibold text-navy">Alamat Desa/Kelurahan<input required maxLength={150} value={villageName} onChange={(event) => setVillageName(event.target.value)} className="mt-1.5 block h-11 w-full rounded-lg border border-[#DDE2E9] px-3 text-sm font-normal outline-none focus:border-primary" placeholder="Masukkan Desa/Kelurahan" /></label>
@@ -78,7 +78,7 @@ export default function CustomerRentalCheckout() {
         <button type="submit" disabled={busy || !profile} className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary text-sm font-semibold text-secondary transition hover:bg-secondary hover:text-white disabled:cursor-not-allowed disabled:opacity-60">{busy ? 'Mengirim booking...' : profile ? 'Kirim booking sewa' : 'Masuk untuk melanjutkan'}<LockKeyhole size={15} /></button>
         <p className="mb-0 mt-3 text-center text-[11px] leading-relaxed text-[#566274]">Tanggal, tarif, dan ketersediaan divalidasi server. Booking menunggu pembayaran di toko Arutala Adventure; kasir mengonfirmasi pembayaran setelah uang diterima.</p>
       </form>
-      <aside className="rounded-xl border border-[#DDE2E9] bg-white p-5 shadow-[0_4px_18px_rgba(77,42,0,0.06)]">
+      <aside className="rounded-xl border border-[#DDE2E9] bg-white p-5 shadow-[0_4px_18px_rgba(37,37,37,0.06)]">
         <h2 className="mb-4 text-base font-semibold text-navy">Ringkasan booking</h2>
         <div className="space-y-4">{rentalItems.map((item) => {
           const days = rentalDays(item.startDate, item.returnDate)

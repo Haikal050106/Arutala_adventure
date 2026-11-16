@@ -30,7 +30,7 @@ export default function AdminLogin() {
   }
 
   return <main className="grid min-h-screen place-items-center bg-canvas px-4 py-10">
-    <section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-7 shadow-[0_8px_32px_rgba(77,42,0,0.08)] max-sm:p-5">
+    <section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-7 shadow-[0_8px_32px_rgba(37,37,37,0.08)] max-sm:p-5">
       <Link to="/" className="mb-7 inline-flex items-center gap-3" aria-label="Kembali ke website Arutala Adventure">
         <img src="/arutala-logo-transparent.png" alt="" className="size-11 object-contain" />
         <span><b className="block text-sm font-bold text-navy">Arutala Adventure</b><small className="text-[10px] font-medium uppercase tracking-wider text-slate-500">Admin</small></span>

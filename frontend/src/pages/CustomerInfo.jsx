@@ -65,7 +65,7 @@ export function CustomerGalleryPage() {
     <h1 className="mb-2 text-3xl font-bold tracking-tight text-navy max-sm:text-2xl">Perlengkapan untuk cerita di alam terbuka</h1>
     <p className="mb-8 max-w-2xl text-sm leading-relaxed text-[#566274]">Lihat pilihan perlengkapan yang tersedia di katalog. Foto berikut adalah ilustrasi produk pada prototipe, bukan dokumentasi stok aktual.</p>
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {customerProducts.map((product) => <article key={product.id} className="overflow-hidden rounded-xl border border-[#DDE2E9] bg-white shadow-[0_3px_14px_rgba(77,42,0,0.05)]">
+      {customerProducts.map((product) => <article key={product.id} className="overflow-hidden rounded-xl border border-[#DDE2E9] bg-white shadow-[0_3px_14px_rgba(37,37,37,0.05)]">
         <CustomerImage src={product.image} alt={product.imageAlt} className="aspect-4/3" />
         <div className="flex items-center justify-between gap-3 p-4">
           <div>

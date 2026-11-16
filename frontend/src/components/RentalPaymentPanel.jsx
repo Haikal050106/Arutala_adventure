@@ -126,8 +126,8 @@ export default function RentalPaymentPanel({ notify, qrisImage }) {
   const payableRentals = rentals.filter((rental) =>
     rental.status === 'confirmed' && Number(rental.balance_due) > 0)
 
-  return <section className="mt-6 overflow-hidden rounded-xl border border-[#E8D6CE] bg-white shadow-sm">
-    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#F0E8E4] px-5 py-4">
+  return <section className="mt-6 overflow-hidden rounded-xl border border-[#FFD2BF] bg-white shadow-sm">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#FFE7DC] px-5 py-4">
       <div>
         <h2 className="m-0 flex items-center gap-2 text-sm font-semibold text-secondary"><CreditCard size={16} className="text-secondary" />Pembayaran penyewaan</h2>
         <p className="mb-0 mt-1 text-xs text-slate-500">Pembayaran hanya tersedia setelah Admin/Kasir menyetujui booking.</p>
@@ -165,7 +165,7 @@ export default function RentalPaymentPanel({ notify, qrisImage }) {
       })}
       {!payableRentals.length && <p className="p-6 text-center text-sm text-slate-500">Tidak ada penyewaan disetujui yang menunggu pembayaran.</p>}
     </div>}
-    {!qrisImage && <p className="m-4 mt-0 rounded-lg bg-[#FBF6F3] p-3 text-xs text-[#71371F]">Unggah barcode QRIS toko pada bagian pembayaran penjualan POS untuk mengaktifkan pembayaran QRIS penyewaan di perangkat ini.</p>}
+    {!qrisImage && <p className="m-4 mt-0 rounded-lg bg-[#FFF1EA] p-3 text-xs text-[#C54300]">Unggah barcode QRIS toko pada bagian pembayaran penjualan POS untuk mengaktifkan pembayaran QRIS penyewaan di perangkat ini.</p>}
     {cashDialog && <CashPaymentDialog
       title="Catat pembayaran sewa"
       transactionNumber={cashDialog.rental.rental_number}

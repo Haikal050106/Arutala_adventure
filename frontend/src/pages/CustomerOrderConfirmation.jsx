@@ -41,8 +41,8 @@ export default function CustomerOrderConfirmation() {
   if (error || !order || order.prototype || order.customer.email !== profile.email) return <div className="mx-auto max-w-xl px-5 py-20 text-center"><PackageCheck size={34} className="mx-auto mb-4 text-slate-300" /><h1 className="text-2xl font-bold text-navy">Konfirmasi pesanan tidak tersedia</h1><p role="alert" className="mt-2 text-sm text-[#566274]">{error || 'Pesanan tidak ditemukan pada akun ini.'}</p><Link to="/akun" className="mt-5 inline-flex text-sm font-semibold text-secondary">Kembali ke akun</Link></div>
 
   return <div className="mx-auto max-w-3xl px-5 py-12 max-md:px-4">
-    <section className="rounded-2xl border border-[#DDE2E9] bg-white p-7 shadow-[0_8px_32px_rgba(77,42,0,0.07)] max-sm:p-5">
-      <div className="mb-5 grid size-12 place-items-center rounded-full bg-[#E8F4EA] text-[#24683C]"><CircleCheck size={25} /></div>
+    <section className="rounded-2xl border border-[#DDE2E9] bg-white p-7 shadow-[0_8px_32px_rgba(37,37,37,0.07)] max-sm:p-5">
+      <div className="mb-5 grid size-12 place-items-center rounded-full bg-[#FFF1EA] text-[#C54300]"><CircleCheck size={25} /></div>
       <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-primary">Pesanan tersimpan</p>
       <h1 className="mb-2 text-2xl font-bold text-navy">Terima kasih, pesanan Anda sudah diterima.</h1>
       <p className="m-0 text-sm leading-relaxed text-[#566274]">Pembayaran dilakukan langsung di toko Arutala Adventure. Checkout tidak mencatat pembayaran; kasir mengonfirmasi setelah uang benar-benar diterima.</p>

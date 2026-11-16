@@ -52,7 +52,7 @@ export default function CustomerCheckout() {
     <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-primary">Tinjau dan kirim</p>
     <h1 className="mb-7 text-3xl font-bold tracking-tight text-navy max-sm:text-2xl">Checkout pembelian</h1>
     <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-      <form onSubmit={submit} className="rounded-xl border border-[#DDE2E9] bg-white p-5 shadow-[0_2px_12px_rgba(77,42,0,0.04)] max-sm:p-4">
+      <form onSubmit={submit} className="rounded-xl border border-[#DDE2E9] bg-white p-5 shadow-[0_2px_12px_rgba(37,37,37,0.04)] max-sm:p-4">
         <h2 className="mb-4 text-base font-semibold text-navy">Informasi pelanggan</h2>
         {!profile ? <div className="mb-4 rounded-lg border border-sand bg-sand/40 p-3 text-xs leading-relaxed text-secondary"><div className="flex gap-2"><ShieldAlert size={16} className="mt-0.5 shrink-0" /><span>Masuk atau daftar agar pesanan terhubung ke akun pelanggan Anda.{authError && <span className="mt-1 block">{authError}</span>}</span></div><Link to="/masuk?next=/checkout" className="mt-2 inline-flex font-semibold underline">Masuk / daftar</Link></div> : <div className="mb-4 rounded-lg bg-canvas p-3 text-xs text-[#566274]"><b className="block text-navy">{profile.name}</b><span>{profile.email} · {profile.phone}</span></div>}
         <label className="block text-xs font-semibold text-navy">Catatan untuk toko <span className="font-normal text-[#566274]">(opsional)</span><textarea rows="4" maxLength={2000} value={notes} onChange={(event) => setNotes(event.target.value)} className="mt-1.5 block w-full resize-y rounded-lg border border-[#DDE2E9] p-3 text-sm font-normal outline-none focus:border-primary" placeholder="Catatan terkait pembelian" /></label>
@@ -61,7 +61,7 @@ export default function CustomerCheckout() {
         <button type="submit" disabled={busy || !profile} className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary text-sm font-semibold text-secondary transition hover:bg-secondary hover:text-white disabled:cursor-not-allowed disabled:opacity-60">{busy ? 'Mengirim pesanan...' : profile ? 'Buat pesanan' : 'Masuk untuk melanjutkan'}<LockKeyhole size={15} /></button>
         <p className="mb-0 mt-3 text-center text-[11px] leading-relaxed text-[#566274]">Checkout hanya membuat pesanan. Pembayaran dilakukan langsung di toko Arutala Adventure dan dikonfirmasi kasir setelah uang diterima.</p>
       </form>
-      <aside className="rounded-xl border border-[#DDE2E9] bg-white p-5 shadow-[0_4px_18px_rgba(77,42,0,0.06)]">
+      <aside className="rounded-xl border border-[#DDE2E9] bg-white p-5 shadow-[0_4px_18px_rgba(37,37,37,0.06)]">
         <h2 className="mb-4 text-base font-semibold text-navy">Ringkasan pembelian</h2>
         <div className="space-y-3">{purchaseItems.map((item) => <div key={item.id} className="flex justify-between gap-3 text-xs">
           <span className="text-[#566274]">{item.name} × {item.quantity}</span>

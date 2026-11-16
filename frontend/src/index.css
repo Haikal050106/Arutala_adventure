@@ -4,21 +4,60 @@
 @theme {
 --font-sans: "DM Sans", sans-serif;
 --color-background: #ffffff;
---color-primary: #EB7D00;
---color-primary-foreground: #4D2A00;
---color-secondary: #4D2A00;
---color-sand: #EBE3A7;
---color-navy: #4D2A00;
---color-canvas: #f3f5f8;
+--color-primary: #FB5600;
+--color-primary-foreground: #FFFFFF;
+--color-secondary: #252525;
+--color-sand: #F7F7F7;
+--color-navy: #252525;
+--color-canvas: #FFFFFF;
+--color-amber-50: #FFF1EA;
+--color-amber-200: #FFD2BF;
+--color-amber-800: #C54300;
+--color-amber-900: #A93800;
+--color-emerald-50: #FFF1EA;
+--color-emerald-700: #C54300;
+--color-blue-50: #F7F7F7;
+--color-blue-500: #71717A;
+--color-blue-700: #52525B;
 }
 
 html {
   min-width: 320px;
-  background: #f3f5f8;
+  background: #FFFFFF;
 }
 
 body {
   min-height: 100vh;
   margin: 0;
-  color: #4D2A00;
+  background: #FFFFFF;
+  color: #252525;
+}
+
+input,
+select,
+textarea {
+  border-color: #E5E5E5;
+  background-color: #FFFFFF;
+  color: #252525;
+}
+
+input:focus,
+select:focus,
+textarea:focus,
+button:focus-visible,
+a:focus-visible {
+  outline-color: #FB5600;
+}
+
+::selection {
+  background: #FB5600;
+  color: #FFFFFF;
+}
+
+.bg-primary.text-secondary {
+  color: #FFFFFF;
+}
+
+.bg-primary.text-secondary:hover {
+  background-color: #E64F00;
 }

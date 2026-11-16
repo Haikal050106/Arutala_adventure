@@ -21,7 +21,7 @@ function RevenueChart({ values, period }) {
   return <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div><h2 className="m-0 text-base font-semibold text-navy">Pendapatan {period === 'daily' ? 'harian' : 'bulanan'}</h2><p className="mb-0 mt-1 text-xs text-slate-500">Berdasarkan waktu pembayaran berhasil di ledger.</p></div>
-      <div className="flex gap-4 text-[11px] text-slate-600"><span className="flex items-center gap-1.5"><i className="size-2.5 rounded-sm bg-sand/400" />Pembelian</span><span className="flex items-center gap-1.5"><i className="size-2.5 rounded-sm bg-blue-500" />Penyewaan</span></div>
+      <div className="flex gap-4 text-[11px] text-slate-600"><span className="flex items-center gap-1.5"><i className="size-2.5 rounded-sm bg-primary" />Pembelian</span><span className="flex items-center gap-1.5"><i className="size-2.5 rounded-sm bg-slate-400" />Penyewaan</span></div>
     </div>
     {values.length ? <div className="mt-5">
       <div className="flex h-48 items-end gap-1 border-b border-l border-slate-200 px-2">
@@ -30,8 +30,8 @@ function RevenueChart({ values, period }) {
           const rentalHeight = Number(entry.rental) / max * 100
           return <div key={entry.date} className="group relative flex h-full min-w-0 flex-1 items-end justify-center">
             <div className="flex w-full max-w-8 flex-col justify-end overflow-hidden rounded-t-sm" style={{ height: `${purchaseHeight + rentalHeight}%` }}>
-              <span className="block bg-blue-500" style={{ height: `${rentalHeight / Math.max(1, purchaseHeight + rentalHeight) * 100}%` }} />
-              <span className="block bg-sand/400" style={{ height: `${purchaseHeight / Math.max(1, purchaseHeight + rentalHeight) * 100}%` }} />
+              <span className="block bg-slate-400" style={{ height: `${rentalHeight / Math.max(1, purchaseHeight + rentalHeight) * 100}%` }} />
+              <span className="block bg-primary" style={{ height: `${purchaseHeight / Math.max(1, purchaseHeight + rentalHeight) * 100}%` }} />
             </div>
             <div className="pointer-events-none absolute bottom-full z-10 mb-2 hidden whitespace-nowrap rounded-md bg-navy px-2 py-1 text-[10px] text-white shadow group-hover:block">
               {entry.date} · Pembelian {money(entry.purchase)} · Sewa {money(entry.rental)}
@@ -111,8 +111,8 @@ export default function AdminDashboard() {
   const stats = useMemo(() => report ? [
     { label: 'Total pendapatan', value: money(report.revenue.total), note: `Pembelian ${money(report.revenue.purchase)} · Sewa ${money(report.revenue.rental)}`, icon: Wallet, tone: 'bg-violet-50 text-violet-700' },
     { label: 'Transaksi pembelian', value: report.transactions.purchases, note: 'Order dibuat pada rentang tanggal', icon: ClipboardList, tone: 'bg-sand/40 text-secondary' },
-    { label: 'Transaksi penyewaan', value: report.transactions.rentals, note: 'Rental dibuat pada rentang tanggal', icon: CalendarDays, tone: 'bg-blue-50 text-blue-700' },
-    { label: 'Pelanggan', value: report.customers.total, note: `${report.customers.online} online · ${report.customers.offline} offline`, icon: UsersRound, tone: 'bg-emerald-50 text-emerald-700' },
+    { label: 'Transaksi penyewaan', value: report.transactions.rentals, note: 'Rental dibuat pada rentang tanggal', icon: CalendarDays, tone: 'bg-slate-100 text-slate-700' },
+    { label: 'Pelanggan', value: report.customers.total, note: `${report.customers.online} online · ${report.customers.offline} offline`, icon: UsersRound, tone: 'bg-[#FFF1EA] text-[#C54300]' },
   ] : [], [report])
 
   const applyFilters = (event) => {
@@ -152,7 +152,7 @@ export default function AdminDashboard() {
       <div className="mb-5 grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(260px,1fr)]">
         <RevenueChart values={report.revenue_chart} period={filters.period} />
         <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-start justify-between gap-3"><div><h2 className="m-0 text-base font-semibold text-navy">Menunggu proses</h2><p className="mb-0 mt-1 text-xs text-slate-500">Order dan booking dalam antrean operasional.</p></div><span className="grid size-9 place-items-center rounded-lg bg-amber-50 text-amber-700">{createElement(ClipboardList, { size: 17, 'aria-hidden': true })}</span></div>
+          <div className="flex items-start justify-between gap-3"><div><h2 className="m-0 text-base font-semibold text-navy">Menunggu proses</h2><p className="mb-0 mt-1 text-xs text-slate-500">Order dan booking dalam antrean operasional.</p></div><span className="grid size-9 place-items-center rounded-lg bg-[#FFF1EA] text-[#C54300]">{createElement(ClipboardList, { size: 17, 'aria-hidden': true })}</span></div>
           <div className="mt-5 grid grid-cols-2 gap-3"><div className="rounded-lg bg-slate-50 p-3"><p className="m-0 text-[11px] text-slate-500">Pesanan</p><strong className="mt-1 block text-2xl text-navy">{report.pending_orders.length}</strong></div><div className="rounded-lg bg-slate-50 p-3"><p className="m-0 text-[11px] text-slate-500">Booking sewa</p><strong className="mt-1 block text-2xl text-navy">{report.pending_rentals.length}</strong></div></div>
           <p className="mb-0 mt-3 text-[10px] text-slate-500">{pendingCount ? 'Daftar terbaru dibatasi 8 per jenis.' : 'Tidak ada transaksi yang menunggu proses.'}</p>
         </section>

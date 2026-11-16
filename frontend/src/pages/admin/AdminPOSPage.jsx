@@ -380,7 +380,7 @@ export default function AdminPOSPage() {
               </label>
               {paymentMethod === 'cash'
                 ? <label className="mt-4 block text-xs font-semibold text-navy">Uang diterima<input required type="number" min={total} step="0.01" value={cashReceived} onChange={(event) => setCashReceived(event.target.value)} className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-primary focus:ring-2 focus:ring-primary/25" /></label>
-                : <div className="mt-4 rounded-lg border border-[#E8D6CE] bg-[#FBF6F3] p-3 text-xs text-secondary">
+                : <div className="mt-4 rounded-lg border border-[#FFD2BF] bg-[#FFF1EA] p-3 text-xs text-secondary">
                   <label className="block font-semibold">Gambar barcode QRIS toko
                     <input type="file" accept="image/png,image/jpeg,image/webp" onChange={saveQrisImage} className="mt-2 block w-full text-xs font-normal" />
                   </label>
