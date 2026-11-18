@@ -46,21 +46,43 @@ class Rental < ApplicationRecord
       products = product_scope
         .order(:id).lock.index_by(&:id)
       raise ActiveRecord::RecordNotFound if products.length != normalized_items.map { |item| item.fetch(:product_id) }.uniq.length
+      variant_ids = normalized_items.filter_map { |item| item[:variant_id] }.uniq
+      variant_scope = ProductVariant.where(id: variant_ids)
+      variant_scope.update_all("rental_stock = rental_stock")
+      variants = variant_scope.order(:id).lock.index_by(&:id)
+      raise ActiveRecord::RecordNotFound if variants.length != variant_ids.length
+      normalized_items.each do |item|
+        product = products.fetch(item.fetch(:product_id))
+        variant = variants[item[:variant_id]]
+        if variant
+          raise ArgumentError, "Varian tidak termasuk produk yang dipilih." unless variant.product_id == product.id && variant.active?
+        elsif product.product_variants.exists?
+          raise ArgumentError, "Pilih varian untuk produk ini."
+        end
+      end
 
-      check_availability!(normalized_items, products)
+      check_availability!(normalized_items, products, variants)
 
       rental = new(customer: customer, village_name: village_name, notes: notes, idempotency_key: idempotency_key)
       rental.status_change_actor = actor
       normalized_items.each do |attributes|
         product = products.fetch(attributes.fetch(:product_id))
+        variant = variants[attributes[:variant_id]]
+        unit_price = variant&.rent_price_per_day || product.rent_price_per_day
         rental.rental_items.build(
           product: product,
+          product_variant: variant,
+          variant_name: variant&.name,
+          variant_design_name: variant&.design_name,
+          variant_color: variant&.color,
+          variant_size: variant&.size,
+          variant_options: variant ? variant.options.merge("capacity" => variant.capacity).compact_blank : {},
           start_date: attributes.fetch(:start_date),
           return_date: attributes.fetch(:return_date),
           quantity: attributes.fetch(:quantity),
-          unit_price_per_day: product.rent_price_per_day,
+          unit_price_per_day: unit_price,
           rental_days: (attributes.fetch(:return_date) - attributes.fetch(:start_date)).to_i,
-          subtotal: product.rent_price_per_day * attributes.fetch(:quantity) *
+          subtotal: unit_price * attributes.fetch(:quantity) *
             (attributes.fetch(:return_date) - attributes.fetch(:start_date)).to_i
         )
       end
@@ -143,9 +165,9 @@ class Rental < ApplicationRecord
     end
   end
 
-  def self.available_quantity_for(product:, start_date:, return_date:)
+  def self.available_quantity_for(product:, start_date:, return_date:, variant: nil)
     reserved_items = RentalItem.joins(:rental)
-      .where(product_id: product.id)
+      .where(product_id: product.id, product_variant_id: variant&.id)
       .where(
         "rentals.status = :pending OR (rentals.status IN (:allocated) AND rentals.stock_deducted = :not_deducted)",
         pending: "pending_confirmation",
@@ -161,13 +183,14 @@ class Rental < ApplicationRecord
       end
     end.max || 0
 
-    [ product.rental_stock - peak_reserved, 0 ].max
+    [ (variant || product).rental_stock - peak_reserved, 0 ].max
   end
 
   def self.check_confirmation_availability!(rental)
     requested_items = rental.rental_items.map do |item|
       {
         product_id: item.product_id,
+        variant_id: item.product_variant_id,
         quantity: item.quantity,
         start_date: item.start_date,
         return_date: item.return_date
@@ -176,7 +199,9 @@ class Rental < ApplicationRecord
     product_scope = Product.where(id: requested_items.map { |item| item.fetch(:product_id) }.uniq)
     product_scope.update_all("rental_stock = rental_stock")
     products = product_scope.order(:id).lock.index_by(&:id)
-    check_availability!(requested_items, products, excluding_rental_id: rental.id)
+    variant_ids = requested_items.filter_map { |item| item[:variant_id] }.uniq
+    variants = ProductVariant.where(id: variant_ids).order(:id).lock.index_by(&:id)
+    check_availability!(requested_items, products, variants, excluding_rental_id: rental.id)
   end
 
   class << self
@@ -189,12 +214,14 @@ class Rental < ApplicationRecord
         attributes = item.to_h.symbolize_keys
         product_id = positive_integer(attributes.fetch(:product_id))
         quantity = positive_integer(attributes.fetch(:quantity))
+        variant_id = attributes[:variant_id].present? ? positive_integer(attributes[:variant_id]) : nil
         start_date = Date.iso8601(attributes.fetch(:start_date).to_s)
         return_date = Date.iso8601(attributes.fetch(:return_date).to_s)
         raise ArgumentError, "Tanggal kembali harus setelah tanggal mulai." unless return_date > start_date
 
         {
           product_id: product_id,
+          variant_id: variant_id,
           quantity: quantity,
           start_date: start_date,
           return_date: return_date
@@ -210,11 +237,19 @@ class Rental < ApplicationRecord
       Integer(value)
     end
 
-    def check_availability!(requested_items, products, excluding_rental_id: nil)
-      requested_items.group_by { |item| item.fetch(:product_id) }.each do |product_id, items|
+    def check_availability!(requested_items, products, variants, excluding_rental_id: nil)
+      requested_items.group_by { |item| [ item.fetch(:product_id), item[:variant_id] ] }.each do |(product_id, variant_id), items|
         product = products.fetch(product_id)
+        variant = variants[variant_id]
+        raise ActiveRecord::RecordNotFound if variant_id && !variant
+        if variant
+          raise ArgumentError, "Varian tidak termasuk produk yang dipilih." unless variant.product_id == product.id && variant.active?
+        elsif product.product_variants.exists?
+          raise ArgumentError, "Pilih varian untuk produk ini."
+        end
+        inventory = variant || product
         existing_scope = RentalItem.joins(:rental)
-          .where(product_id: product_id)
+          .where(product_id: product_id, product_variant_id: variant_id)
           .where(
             "rentals.status = :pending OR (rentals.status IN (:allocated) AND rentals.stock_deducted = :not_deducted)",
             pending: "pending_confirmation",
@@ -239,7 +274,7 @@ class Rental < ApplicationRecord
           requested_quantity = items.sum do |item|
             item.fetch(:start_date) <= period_start && item.fetch(:return_date) > period_start ? item.fetch(:quantity) : 0
           end
-          raise AvailabilityError, product.name if existing_quantity + requested_quantity > product.rental_stock
+          raise AvailabilityError, (variant&.display_label || product.name) if existing_quantity + requested_quantity > inventory.rental_stock
         end
       end
     end
@@ -300,25 +335,29 @@ class Rental < ApplicationRecord
 
   def adjust_stock_for_transition!(target_status)
     if target_status == "active" && !stock_deducted?
-      adjust_product_stock!(rental_items.group(:product_id).sum(:quantity), :deduct)
+      adjust_product_stock!(rental_items.group(:product_variant_id, :product_id).sum(:quantity), :deduct)
     elsif target_status.in?(%w[cancelled rejected]) && stock_deducted?
-      adjust_product_stock!(rental_items.group(:product_id).sum(:quantity), :restore)
+      adjust_product_stock!(rental_items.group(:product_variant_id, :product_id).sum(:quantity), :restore)
     elsif target_status == "returned" && stock_deducted?
       good_items = rental_items.where(return_condition: "good")
-      adjust_product_stock!(good_items.group(:product_id).sum(:quantity), :restore)
+      adjust_product_stock!(good_items.group(:product_variant_id, :product_id).sum(:quantity), :restore)
     end
   end
 
-  def adjust_product_stock!(quantities_by_product, operation)
-    return if quantities_by_product.empty?
+  def adjust_product_stock!(quantities_by_inventory, operation)
+    return if quantities_by_inventory.empty?
 
-    product_ids = quantities_by_product.keys.sort
+    product_ids = quantities_by_inventory.keys.map(&:last).uniq.sort
     Product.where(id: product_ids).update_all("rental_stock = rental_stock")
     products = Product.where(id: product_ids).order(:id).lock.index_by(&:id)
+    variant_ids = quantities_by_inventory.keys.map(&:first).compact.uniq.sort
+    ProductVariant.where(id: variant_ids).update_all("rental_stock = rental_stock")
+    variants = ProductVariant.where(id: variant_ids).order(:id).lock.index_by(&:id)
 
-    quantities_by_product.sort.each do |product_id, quantity|
+    quantities_by_inventory.sort.each do |(variant_id, product_id), quantity|
       product = products.fetch(product_id)
-      stock_scope = Product.where(id: product_id)
+      inventory = variants[variant_id] || product
+      stock_scope = inventory.class.where(id: inventory.id)
       if operation == :deduct
         stock_scope = stock_scope.where("rental_stock >= ?", quantity)
         adjustment = [ "rental_stock = rental_stock - ?, updated_at = ?", quantity, Time.current ]
@@ -326,7 +365,7 @@ class Rental < ApplicationRecord
         adjustment = [ "rental_stock = rental_stock + ?, updated_at = ?", quantity, Time.current ]
       end
 
-      raise AvailabilityError, product.name unless stock_scope.update_all(adjustment) == 1
+      raise AvailabilityError, (variants[variant_id]&.display_label || product.name) unless stock_scope.update_all(adjustment) == 1
     end
   end
 end

@@ -24,6 +24,9 @@ bin/rails server
 
 The API is available at `http://localhost:3000`; `http://localhost:3000/up`
 checks that the Rails server is responding.
+To add the starter Sepatu Hiking and Hydropack variants to an existing database,
+run `bin/rails db:seed` from `backend/` after migrations. This does not reset or
+delete any database data; starter inventory is zero until configured in Admin.
 
 ## Run the frontend
 
@@ -60,6 +63,9 @@ bundle exec rails test
 bundle exec rails zeitwerk:check
 bundle exec rubocop
 ```
+
+Manage product models and their color/size stock combinations from Admin under
+Products. Each combination can override prices and has its own Cloudinary photo.
 
 See [docs/PRD.md](docs/PRD.md) for product requirements and
 [backend/README.md](backend/README.md) for API details.

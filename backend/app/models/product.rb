@@ -1,6 +1,7 @@
 class Product < ApplicationRecord
   belongs_to :category
   has_many :product_photos, -> { order(:position, :id) }, dependent: :destroy
+  has_many :product_variants, dependent: :restrict_with_error
 
   before_validation :generate_slug, on: :create
 
@@ -12,7 +13,11 @@ class Product < ApplicationRecord
   validates :image_url, :image_alt, length: { maximum: 255 }, allow_blank: true
 
   def available?
-    sale_stock.positive? || rental_stock.positive?
+    if product_variants.exists?
+      product_variants.where(active: true).where("sale_stock > 0 OR rental_stock > 0").exists?
+    else
+      sale_stock.positive? || rental_stock.positive?
+    end
   end
 
   def primary_photo

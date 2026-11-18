@@ -32,6 +32,19 @@ function normalizeProduct(product) {
     saleStock: Number(product.sale_stock),
     rentalStock: Number(product.rental_stock),
     photos: product.photos || [],
+    variants: (product.variants || []).map((variant) => ({
+      ...variant,
+      designName: variant.design_name || 'Default',
+      salePrice: variant.sale_price === null ? '' : Number(variant.sale_price),
+      rentPricePerDay: variant.rent_price_per_day === null ? '' : Number(variant.rent_price_per_day),
+      saleStock: Number(variant.sale_stock),
+      rentalStock: Number(variant.rental_stock),
+      options: variant.options || {},
+      capacity: variant.capacity || variant.options?.capacity || '',
+      photos: variant.photos || [],
+      image: variant.image_url || '',
+      imageAlt: variant.image_alt || variant.name,
+    })),
     image: product.image_url || '',
     imageAlt: product.image_alt || product.name,
   }
@@ -228,6 +241,66 @@ export default function AdminSectionPage({ section }) {
               },
             },
           })
+          const variantRows = values.variants || []
+          for (const [index, variant] of variantRows.entries()) {
+            let options
+            try {
+              options = JSON.parse(variant.optionsJson || '{}')
+            } catch {
+              return `Atribut tambahan pada varian ${index + 1} harus berupa JSON yang valid.`
+            }
+            if (!options || Array.isArray(options) || typeof options !== 'object') {
+              return `Atribut tambahan pada varian ${index + 1} harus berupa objek JSON.`
+            }
+            if (variant.capacity?.trim()) options.capacity = variant.capacity.trim()
+            else delete options.capacity
+            const variantPayload = {
+              name: variant.name.trim(),
+              design_name: variant.designName.trim(),
+              color: variant.color?.trim() || '',
+              size: variant.size?.trim() || '',
+              capacity: variant.capacity?.trim() || '',
+              options,
+              sale_price: variant.salePrice === '' || variant.salePrice === null ? null : Number(variant.salePrice),
+              rent_price_per_day: variant.rentPricePerDay === '' || variant.rentPricePerDay === null ? null : Number(variant.rentPricePerDay),
+              sale_stock: Number(variant.saleStock),
+              rental_stock: Number(variant.rentalStock),
+              active: variant.active !== false,
+            }
+            const variantPath = `/products/${savedProduct.slug}/variants`
+            const savedVariant = await adminApiRequest(
+              variant.id ? `${variantPath}/${variant.id}` : variantPath,
+              {
+                method: variant.id ? 'PATCH' : 'POST',
+                token,
+                body: { variant: variantPayload },
+              },
+            )
+            const remainingPhotos = (variant.photos || []).filter((photo) => !(variant.deletedPhotoIds || []).includes(photo.id))
+            for (const [photoIndex, file] of (variant.photoFiles || []).entries()) {
+              await adminApiUpload(`${variantPath}/${savedVariant.id}/photos`, {
+                file,
+                token,
+                body: { is_primary: remainingPhotos.length === 0 && photoIndex === 0 },
+              })
+            }
+            for (const photoId of variant.deletedPhotoIds || []) {
+              await adminApiRequest(`${variantPath}/${savedVariant.id}/photos/${photoId}`, {
+                method: 'DELETE',
+                token,
+              })
+            }
+          }
+          const retainedVariantIds = new Set(variantRows.map((variant) => variant.id).filter(Boolean))
+          for (const variant of dialog?.record?.variants || []) {
+            if (!retainedVariantIds.has(variant.id)) {
+              await adminApiRequest(`/products/${savedProduct.slug}/variants/${variant.id}`, {
+                method: 'DELETE',
+                token,
+              })
+            }
+          }
+
           const newPhotoIds = new Map()
           for (const [index, file] of (values.newPhotos || []).entries()) {
             const photo = await adminApiUpload(`/products/${savedProduct.slug}/photos`, {

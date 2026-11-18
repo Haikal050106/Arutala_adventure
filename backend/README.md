@@ -12,6 +12,17 @@ This is the Rails API backend for Arutala Adventure.
 The API currently stores categories and products in SQLite. No demo records are
 created automatically.
 
+After applying migrations, initialize the editable Sepatu Hiking and Hydropack
+catalog entries without resetting the database:
+
+```powershell
+bin/rails db:seed
+```
+
+The starter variants intentionally have zero stock. Admins should set actual
+colors, sizes, photos, prices, and inventory before making them available.
+Hydropack Model A and Model B start at Rp15.000 and Rp20.000 respectively.
+
 ## Category and product API
 
 All endpoints are JSON under `/api/v1`.

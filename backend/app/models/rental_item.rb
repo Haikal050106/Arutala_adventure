@@ -1,6 +1,7 @@
 class RentalItem < ApplicationRecord
   belongs_to :rental
   belongs_to :product
+  belongs_to :product_variant, optional: true
 
   before_validation :calculate_rental_amounts
 

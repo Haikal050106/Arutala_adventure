@@ -58,7 +58,13 @@ function normalizeServerOrder(order) {
     items: order.order_items.map((item) => ({
       id: String(item.id),
       productId: item.product?.slug || String(item.product_id),
-      name: item.product?.name || 'Produk',
+      name: [item.product?.name || 'Produk', item.variant_name || item.product_variant?.name, item.variant_design_name || item.product_variant?.design_name, item.variant_color || item.product_variant?.color, item.variant_size || item.product_variant?.size, (item.variant_options || item.product_variant?.options)?.capacity].filter(Boolean).join(' · '),
+      variantId: item.product_variant_id || item.product_variant?.id || null,
+      variantName: item.variant_name || item.product_variant?.name || '',
+      variantDesignName: item.variant_design_name || item.product_variant?.design_name || '',
+      variantColor: item.variant_color || item.product_variant?.color || '',
+      variantSize: item.variant_size || item.product_variant?.size || '',
+      variantOptions: item.variant_options || item.product_variant?.options || {},
       kind: 'purchase',
       quantity: Number(item.quantity),
       unitPrice: Number(item.unit_price),
@@ -88,7 +94,13 @@ function normalizeServerRental(rental) {
     items: rental.rental_items.map((item) => ({
       id: String(item.id),
       productId: item.product?.slug || String(item.product_id),
-      name: item.product?.name || 'Perlengkapan',
+      name: [item.product?.name || 'Perlengkapan', item.variant_name || item.product_variant?.name, item.variant_design_name || item.product_variant?.design_name, item.variant_color || item.product_variant?.color, item.variant_size || item.product_variant?.size, (item.variant_options || item.product_variant?.options)?.capacity].filter(Boolean).join(' · '),
+      variantId: item.product_variant_id || item.product_variant?.id || null,
+      variantName: item.variant_name || item.product_variant?.name || '',
+      variantDesignName: item.variant_design_name || item.product_variant?.design_name || '',
+      variantColor: item.variant_color || item.product_variant?.color || '',
+      variantSize: item.variant_size || item.product_variant?.size || '',
+      variantOptions: item.variant_options || item.product_variant?.options || {},
       kind: 'rental',
       quantity: Number(item.quantity),
       unitPrice: Number(item.unit_price_per_day),
@@ -111,8 +123,8 @@ function normalizeServerRental(rental) {
 
 function purchaseIdempotencyKey(items) {
   const signature = JSON.stringify(items
-    .map((item) => [item.apiId, item.quantity])
-    .sort(([firstId], [secondId]) => firstId - secondId))
+    .map((item) => [item.apiId, item.variantId || 0, item.quantity])
+    .sort(([firstId, firstVariant], [secondId, secondVariant]) => firstId - secondId || firstVariant - secondVariant))
   const stored = sessionStorage.getItem(PURCHASE_REQUEST_KEY)
   if (stored) {
     const request = JSON.parse(stored)
@@ -125,8 +137,8 @@ function purchaseIdempotencyKey(items) {
 
 function rentalIdempotencyKey(items) {
   const signature = JSON.stringify(items
-    .map((item) => [item.apiId, item.quantity, item.startDate, item.returnDate])
-    .sort(([firstId, , firstStart], [secondId, , secondStart]) => firstId - secondId || firstStart.localeCompare(secondStart)))
+    .map((item) => [item.apiId, item.variantId || 0, item.quantity, item.startDate, item.returnDate])
+    .sort(([firstId, firstVariant, , firstStart], [secondId, secondVariant, , secondStart]) => firstId - secondId || firstVariant - secondVariant || firstStart.localeCompare(secondStart)))
   const stored = sessionStorage.getItem(RENTAL_REQUEST_KEY)
   if (stored) {
     const request = JSON.parse(stored)
@@ -170,6 +182,18 @@ function normalizeProduct(product) {
     saleStock: Number(product.sale_stock),
     rentalStock: Number(product.rental_stock),
     photos: product.photos || [],
+    variants: (product.variants || []).filter((variant) => variant.active !== false).map((variant) => ({
+      ...variant,
+      id: Number(variant.id),
+      salePrice: variant.sale_price === null ? null : Number(variant.sale_price),
+      rentPricePerDay: variant.rent_price_per_day === null ? null : Number(variant.rent_price_per_day),
+      saleStock: Number(variant.sale_stock),
+      rentalStock: Number(variant.rental_stock),
+      options: variant.options || {},
+      photos: variant.photos || [],
+      image: variant.image_url || '',
+      imageAlt: variant.image_alt || `${product.name} ${variant.name}`,
+    })),
     image: product.image_url || fallbackImage || '',
     imageAlt: product.image_alt || `${product.name}, kategori ${category}`,
   }
@@ -309,15 +333,16 @@ export function CustomerStoreProvider({ children }) {
 
   const getProduct = (productId) => products.find((product) => product.id === productId)
 
-  const rentalAvailabilityKey = (productId, startDate, returnDate) => `${productId}:${startDate}:${returnDate}`
+  const rentalAvailabilityKey = (productId, variantId, startDate, returnDate) => `${productId}:${variantId || 0}:${startDate}:${returnDate}`
 
-  const fetchRentalAvailability = useCallback(async (productId, startDate, returnDate) => {
+  const fetchRentalAvailability = useCallback(async (productId, startDate, returnDate, variantId = null) => {
     const product = products.find((item) => item.id === productId)
     if (!product || !startDate || !returnDate || returnDate <= startDate) {
       throw new Error('Pilih produk dan rentang tanggal sewa yang valid.')
     }
 
     const query = new URLSearchParams({ start_date: startDate, return_date: returnDate })
+    if (variantId) query.set('variant_id', String(variantId))
     const payload = await customerApiRequest(
       `/products/${encodeURIComponent(product.id)}/rental_availability?${query.toString()}`,
     )
@@ -327,52 +352,72 @@ export function CustomerStoreProvider({ children }) {
 
     setRentalAvailability((current) => ({
       ...current,
-      [rentalAvailabilityKey(productId, startDate, returnDate)]: payload.available_quantity,
+      [rentalAvailabilityKey(productId, variantId, startDate, returnDate)]: payload.available_quantity,
     }))
     return payload.available_quantity
   }, [products])
 
-  const getSaleAvailable = (productId, excludeCartId = null) => {
+  const getSaleAvailable = (productId, variantId = null, excludeCartId = null) => {
     const product = getProduct(productId)
     if (!product) return 0
+    const variant = product.variants.find((item) => item.id === Number(variantId))
+    if (product.variants.length && !variant) return 0
+    const inventoryId = variant ? `variant-${variant.id}` : productId
     const ordered = allOrders.filter((order) => order.prototype
       ? activeOrderStatuses.has(order.status)
       : order.status === 'Menunggu konfirmasi').flatMap((order) => order.items)
-      .filter((item) => item.productId === productId && item.kind === 'purchase')
+      .filter((item) => item.productId === productId && item.kind === 'purchase' && (item.variantId ? `variant-${item.variantId}` : productId) === inventoryId)
       .reduce((sum, item) => sum + item.quantity, 0)
-    const inCart = cart.filter((item) => item.id !== excludeCartId && item.productId === productId && item.kind === 'purchase')
+    const inCart = cart.filter((item) => item.id !== excludeCartId && item.productId === productId && item.kind === 'purchase' && (item.variantId ? `variant-${item.variantId}` : productId) === inventoryId)
       .reduce((sum, item) => sum + item.quantity, 0)
-    return Math.max(0, product.saleStock - ordered - inCart)
+    return Math.max(0, (variant ? variant.saleStock : product.saleStock) - ordered - inCart)
   }
 
-  const getRentalAvailable = (productId, startDate, returnDate, excludeCartId = null) => {
+  const getRentalAvailable = (productId, startDate, returnDate, variantId = null, excludeCartId = null) => {
     const product = getProduct(productId)
     if (!product || !rentalDays(startDate, returnDate)) return 0
-    const serverAvailable = rentalAvailability[rentalAvailabilityKey(productId, startDate, returnDate)]
+    const variant = product.variants.find((item) => item.id === Number(variantId))
+    if (product.variants.length && !variant) return 0
+    const inventoryId = variant ? `variant-${variant.id}` : productId
+    const serverAvailable = rentalAvailability[rentalAvailabilityKey(productId, variantId, startDate, returnDate)]
     const ordered = allOrders.filter((order) => activeOrderStatuses.has(order.status) && !order.stockDeducted).flatMap((order) => order.items)
-      .filter((item) => item.productId === productId && item.kind === 'rental' && datesOverlap(startDate, returnDate, item.startDate, item.returnDate))
+      .filter((item) => item.productId === productId && item.kind === 'rental' && (item.variantId ? `variant-${item.variantId}` : productId) === inventoryId && datesOverlap(startDate, returnDate, item.startDate, item.returnDate))
       .reduce((sum, item) => sum + item.quantity, 0)
-    const inCart = cart.filter((item) => item.id !== excludeCartId && item.productId === productId && item.kind === 'rental' && datesOverlap(startDate, returnDate, item.startDate, item.returnDate))
+    const inCart = cart.filter((item) => item.id !== excludeCartId && item.productId === productId && item.kind === 'rental' && (item.variantId ? `variant-${item.variantId}` : productId) === inventoryId && datesOverlap(startDate, returnDate, item.startDate, item.returnDate))
       .reduce((sum, item) => sum + item.quantity, 0)
-    return Math.max(0, (Number.isInteger(serverAvailable) ? serverAvailable : product.rentalStock - ordered) - inCart)
+    const localStock = variant ? variant.rentalStock : product.rentalStock
+    const availableBeforeCart = Number.isInteger(serverAvailable) ? serverAvailable : localStock - ordered
+    return Math.max(0, availableBeforeCart - inCart)
   }
 
-  const addToCart = ({ productId, kind, quantity, startDate, returnDate }) => {
+  const addToCart = ({ productId, variantId, kind, quantity, startDate, returnDate }) => {
     const product = getProduct(productId)
+    const variant = product?.variants.find((item) => item.id === Number(variantId))
     const amount = Number(quantity)
     if (!product || !Number.isInteger(amount) || amount < 1) return { ok: false, message: 'Produk belum tersedia dari katalog server atau jumlah tidak valid.' }
+    if (product.variants.length && !variant) return { ok: false, message: 'Pilih model, warna, dan ukuran produk yang tersedia.' }
     if (kind === 'rental' && !rentalDays(startDate, returnDate)) return { ok: false, message: 'Pilih tanggal kembali setelah tanggal mulai.' }
     const available = kind === 'purchase'
-      ? getSaleAvailable(productId)
-      : getRentalAvailable(productId, startDate, returnDate)
+      ? getSaleAvailable(productId, variantId)
+      : getRentalAvailable(productId, startDate, returnDate, variantId)
     if (amount > available) return { ok: false, message: `Ketersediaan berdasarkan stok API dan pesanan demo lokal hanya ${available} unit untuk pilihan ini.` }
 
-    const lineId = `${kind}-${productId}${kind === 'rental' ? `-${startDate}-${returnDate}` : ''}`
-    const unitPrice = kind === 'purchase' ? product.salePrice : product.rentPricePerDay
+    const lineId = `${kind}-${productId}-${variantId || 'base'}${kind === 'rental' ? `-${startDate}-${returnDate}` : ''}`
+    const unitPrice = kind === 'purchase'
+      ? variant?.salePrice ?? product.salePrice
+      : variant?.rentPricePerDay ?? product.rentPricePerDay
     setCart((items) => {
       const current = items.find((item) => item.id === lineId)
       if (current) return items.map((item) => item.id === lineId ? { ...item, apiId: product.apiId, quantity: item.quantity + amount } : item)
-      return [...items, { id: lineId, productId, apiId: product.apiId, name: product.name, category: product.category, kind, quantity: amount, unitPrice, startDate: startDate || '', returnDate: returnDate || '' }]
+      return [...items, {
+        id: lineId, productId, apiId: product.apiId, variantId: variant?.id || null,
+        variantName: variant?.name || '', variantDesignName: variant?.design_name || '',
+        variantColor: variant?.color || '', variantSize: variant?.size || '',
+        variantOptions: variant?.capacity ? { ...(variant.options || {}), capacity: variant.capacity } : variant?.options || {},
+        image: variant?.image || product.image,
+        name: product.name, category: product.category, kind, quantity: amount, unitPrice,
+        startDate: startDate || '', returnDate: returnDate || '',
+      }]
     })
     return { ok: true, message: kind === 'purchase' ? 'Produk ditambahkan ke keranjang.' : 'Perlengkapan ditambahkan ke booking sewa.' }
   }
@@ -387,8 +432,8 @@ export function CustomerStoreProvider({ children }) {
     const item = cart.find((line) => line.id === lineId)
     if (!item) return { ok: false, message: 'Item tidak ditemukan.' }
     const available = item.kind === 'purchase'
-      ? getSaleAvailable(item.productId, lineId)
-      : getRentalAvailable(item.productId, item.startDate, item.returnDate, lineId)
+      ? getSaleAvailable(item.productId, item.variantId, lineId)
+      : getRentalAvailable(item.productId, item.startDate, item.returnDate, item.variantId, lineId)
     if (amount > available) return { ok: false, message: `Ketersediaan berdasarkan stok API dan pesanan demo lokal tersisa ${available} unit.` }
     setCart((items) => items.map((line) => line.id === lineId ? { ...line, quantity: amount } : line))
     return { ok: true }
@@ -399,7 +444,7 @@ export function CustomerStoreProvider({ children }) {
     if (!item || item.kind !== 'rental') return { ok: false, message: 'Item sewa tidak ditemukan.' }
     const days = rentalDays(startDate, returnDate)
     if (!days) return { ok: false, message: 'Tanggal kembali harus setelah tanggal mulai.' }
-    const available = getRentalAvailable(item.productId, startDate, returnDate, lineId)
+    const available = getRentalAvailable(item.productId, startDate, returnDate, item.variantId, lineId)
     if (item.quantity > available) return { ok: false, message: `Stok pada rentang tanggal tersebut hanya ${available} unit.` }
     setCart((items) => items.map((line) => line.id === lineId ? { ...line, startDate, returnDate } : line))
     return { ok: true }
@@ -415,8 +460,8 @@ export function CustomerStoreProvider({ children }) {
     }
     for (const item of cart) {
       const available = item.kind === 'purchase'
-        ? getSaleAvailable(item.productId, item.id)
-        : getRentalAvailable(item.productId, item.startDate, item.returnDate, item.id)
+        ? getSaleAvailable(item.productId, item.variantId, item.id)
+        : getRentalAvailable(item.productId, item.startDate, item.returnDate, item.variantId, item.id)
       if (item.quantity > available) return { ok: false, message: `${item.name}: ketersediaan berubah. Periksa kembali jumlah dan tanggal.` }
     }
     const order = {
@@ -457,7 +502,11 @@ export function CustomerStoreProvider({ children }) {
         body: {
           order: {
             notes,
-            items: purchaseItems.map((item) => ({ product_id: item.apiId, quantity: item.quantity })),
+            items: purchaseItems.map((item) => ({
+              product_id: item.apiId,
+              variant_id: item.variantId || undefined,
+              quantity: item.quantity,
+            })),
           },
         },
       })
@@ -503,6 +552,7 @@ export function CustomerStoreProvider({ children }) {
             notes: notes.trim(),
             items: rentalItems.map((item) => ({
               product_id: item.apiId,
+              variant_id: item.variantId || undefined,
               quantity: item.quantity,
               start_date: item.startDate,
               return_date: item.returnDate,

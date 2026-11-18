@@ -29,7 +29,7 @@ module Api
         end
 
         attributes = params.require(:rental).permit(
-          :village_name, :notes, items: %i[product_id quantity start_date return_date]
+          :village_name, :notes, items: %i[product_id variant_id quantity start_date return_date]
         )
         rental = Rental.create_customer_booking!(
           customer: current_user.customer,
@@ -60,9 +60,13 @@ module Api
             customer: { only: %i[id name email phone village_name] },
             rental_items: {
               only: %i[
-                id product_id start_date return_date quantity unit_price_per_day rental_days subtotal return_condition
+                id product_id product_variant_id variant_name variant_design_name variant_color variant_size variant_options
+                start_date return_date quantity unit_price_per_day rental_days subtotal return_condition
               ],
-              include: { product: { only: %i[id slug name] } }
+              include: {
+                product: { only: %i[id slug name] },
+                product_variant: { only: %i[id name design_name color size capacity options] }
+              }
             },
             payments: { only: Payment::SERIALIZED_FIELDS }
           }

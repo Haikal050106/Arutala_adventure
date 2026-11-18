@@ -28,6 +28,9 @@ const statusLabels = {
 }
 const paymentStatusLabels = { unpaid: 'Belum dibayar', partially_paid: 'Sebagian dibayar', paid: 'Lunas' }
 const paymentMethodLabels = { cash: 'Tunai', qris: 'QRIS statis', gateway: 'Payment gateway' }
+const variantLabel = (item) => [item.variant_name, item.variant_design_name, item.variant_color, item.variant_size, item.variant_options?.capacity]
+  .filter(Boolean)
+  .join(' · ')
 const nextStatuses = {
   pending_confirmation: ['confirmed', 'rejected', 'cancelled'],
   confirmed: ['active', 'cancelled'],
@@ -38,12 +41,14 @@ function rentalDays(startDate, returnDate) {
   return Math.round((new Date(`${returnDate}T00:00:00`) - new Date(`${startDate}T00:00:00`)) / 86400000)
 }
 
-function overlapReserved(rentals, productId, startDate, returnDate) {
+function overlapReserved(rentals, productId, startDate, returnDate, variantId = null) {
   const relevantItems = rentals
     .filter((rental) => rental.status === 'pending_confirmation' ||
       (['confirmed', 'active'].includes(rental.status) && !rental.stock_deducted))
     .flatMap((rental) => rental.rental_items || [])
-    .filter((item) => item.product_id === productId && item.start_date < returnDate && item.return_date > startDate)
+    .filter((item) => item.product_id === productId &&
+      (variantId ? item.product_variant_id === variantId : !item.product_variant_id) &&
+      item.start_date < returnDate && item.return_date > startDate)
   const boundaries = [...new Set([startDate, ...relevantItems.map((item) => item.start_date)])].sort()
   return boundaries.reduce((peak, date) => Math.max(
     peak,
@@ -73,6 +78,7 @@ export default function AdminRentalsPage({ mode = 'all' }) {
   const [returnDate, setReturnDate] = useState(tomorrow)
   const [notes, setNotes] = useState('')
   const [cart, setCart] = useState([])
+  const [selectedVariantIds, setSelectedVariantIds] = useState({})
   const [saving, setSaving] = useState(false)
   const [updatingId, setUpdatingId] = useState(null)
   const [returningRental, setReturningRental] = useState(null)
@@ -121,11 +127,9 @@ export default function AdminRentalsPage({ mode = 'all' }) {
       `${rental.rental_number} ${rental.customer?.name || ''} ${rental.customer?.email || ''} ${rental.village_name || ''} ${items}`
         .toLowerCase().includes(query.trim().toLowerCase())
   }), [rentals, query, statusFilter])
-  const total = cart.reduce((sum, item) => sum + Number(item.product.rent_price_per_day) * item.quantity * days, 0)
+  const total = cart.reduce((sum, item) => sum + Number(item.variant?.rent_price_per_day ?? item.product.rent_price_per_day) * item.quantity * days, 0)
   const cashChange = Math.max(0, Number(cashReceived || 0) - total)
-  const cartHasAvailability = cart.every(({ product, quantity }) => (
-    quantity <= Number(product.rental_stock) - overlapReserved(rentals, product.id, startDate, returnDate)
-  ))
+  const cartHasAvailability = cart.every((item) => item.quantity <= availableUnits(item.product, item.variant, item.id))
   const showBookingForm = mode !== 'history'
   const showRentalHistory = mode !== 'cashier'
 
@@ -137,26 +141,29 @@ export default function AdminRentalsPage({ mode = 'all' }) {
     }
   }
 
-  const availableUnits = (product) => {
+  function availableUnits(product, variant = null, excludeCartId = null) {
     if (!validDates) return 0
-    const reserved = overlapReserved(rentals, product.id, startDate, returnDate)
-    const selected = cart.find((item) => item.product.id === product.id)?.quantity || 0
-    return Math.max(0, Number(product.rental_stock) - reserved - selected)
+    const inventory = variant || product
+    const reserved = overlapReserved(rentals, product.id, startDate, returnDate, variant?.id || null)
+    const selected = cart.filter((item) => item.id !== excludeCartId && item.product.id === product.id && item.variant?.id === (variant?.id || null))
+      .reduce((sum, item) => sum + item.quantity, 0)
+    return Math.max(0, Number(inventory.rental_stock) - reserved - selected)
   }
 
-  const addProduct = (product) => {
-    if (!validDates || availableUnits(product) < 1) return
+  const addProduct = (product, variant = null) => {
+    if (!validDates || availableUnits(product, variant) < 1) return
+    const lineId = `${product.id}-${variant?.id || 'base'}`
     setCart((current) => {
-      const existing = current.find((item) => item.product.id === product.id)
-      if (existing) return current.map((item) => item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item)
-      return [...current, { product, quantity: 1 }]
+      const existing = current.find((item) => item.id === lineId)
+      if (existing) return current.map((item) => item.id === lineId ? { ...item, quantity: item.quantity + 1 } : item)
+      return [...current, { id: lineId, product, variant, quantity: 1 }]
     })
   }
 
-  const changeQuantity = (productId, delta) => {
+  const changeQuantity = (lineId, delta) => {
     setCart((current) => current.map((item) => {
-      if (item.product.id !== productId) return item
-      const capacity = Math.max(0, Number(item.product.rental_stock) - overlapReserved(rentals, productId, startDate, returnDate))
+      if (item.id !== lineId) return item
+      const capacity = availableUnits(item.product, item.variant, lineId) + item.quantity
       return { ...item, quantity: Math.min(capacity, item.quantity + delta) }
     }).filter((item) => item.quantity > 0))
   }
@@ -193,8 +200,9 @@ export default function AdminRentalsPage({ mode = 'all' }) {
             customer_id: Number(customerId),
             village_name: villageName.trim(),
             notes: notes.trim(),
-            items: cart.map(({ product, quantity }) => ({
+            items: cart.map(({ product, variant, quantity }) => ({
               product_id: product.id,
+              variant_id: variant?.id,
               quantity,
               start_date: startDate,
               return_date: returnDate,
@@ -404,13 +412,19 @@ export default function AdminRentalsPage({ mode = 'all' }) {
         </div>
         {!validDates && <p role="alert" className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">Tanggal kembali harus setelah tanggal mulai.</p>}
         {products.filter((product) => `${product.name} ${product.category?.name || ''}`.toLowerCase().includes(query.trim().toLowerCase())).map((product) => {
-          const available = availableUnits(product)
-          return <button type="button" key={product.id} disabled={!validDates || available < 1} onClick={() => addProduct(product)} className="mb-3 mr-3 inline-flex w-[calc(50%-0.5rem)] flex-col rounded-xl border border-slate-200 p-3 text-left transition hover:border-primary/50 hover:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50 sm:w-[calc(33.333%-0.75rem)] xl:w-[calc(25%-0.75rem)]">
+          const variants = (product.variants || []).filter((variant) => variant.active !== false)
+          const variantId = selectedVariantIds[product.id] || variants[0]?.id || null
+          const variant = variants.find((item) => item.id === variantId) || null
+          const available = availableUnits(product, variant)
+          const price = variant?.rent_price_per_day ?? product.rent_price_per_day
+          return <article key={product.id} className="mb-3 mr-3 inline-flex w-[calc(50%-0.5rem)] flex-col rounded-xl border border-slate-200 p-3 text-left sm:w-[calc(33.333%-0.75rem)] xl:w-[calc(25%-0.75rem)]">
             <span className="block truncate text-[10px] text-slate-500">{product.category?.name || 'Produk'}</span>
             <strong className="mt-1 block min-h-9 text-xs leading-snug text-navy">{product.name}</strong>
-            <span className="mt-2 block text-sm font-bold text-secondary">{money(product.rent_price_per_day)}<small className="ml-1 text-[10px] font-medium text-slate-500">/ hari</small></span>
+            {variants.length > 0 && <label className="mt-2 text-[10px] font-semibold text-slate-600">Model / warna / ukuran<select value={variant?.id || ''} onChange={(event) => setSelectedVariantIds((current) => ({ ...current, [product.id]: Number(event.target.value) }))} className="mt-1 h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-xs"><option value="">Pilih varian</option>{variants.map((item) => <option key={item.id} value={item.id} disabled={Number(item.rental_stock) < 1}>{[item.name, item.color, item.size].filter(Boolean).join(' · ')} · stok {item.rental_stock}</option>)}</select></label>}
+            <span className="mt-2 block text-sm font-bold text-secondary">{money(price)}<small className="ml-1 text-[10px] font-medium text-slate-500">/ hari</small></span>
             <span className="mt-2 block text-[10px] font-medium text-slate-500">Tersedia untuk tanggal ini: {available}</span>
-          </button>
+            <button type="button" disabled={!validDates || !variant && variants.length > 0 || available < 1} onClick={() => addProduct(product, variant)} className="mt-2 h-9 rounded-md bg-canvas text-xs font-semibold text-navy hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-50">Tambah ke sewa</button>
+          </article>
         })}
         {!products.length && !loading && <p className="py-10 text-center text-sm text-slate-500">Belum ada produk yang tersedia dari server.</p>}
         {!loading && products.length > 0 && !products.some((product) => `${product.name} ${product.category?.name || ''}`.toLowerCase().includes(query.trim().toLowerCase())) && <p className="py-10 text-center text-sm text-slate-500">Produk tidak ditemukan.</p>}
@@ -427,12 +441,12 @@ export default function AdminRentalsPage({ mode = 'all' }) {
           </div>
           <label className="block text-xs font-semibold text-navy">Catatan (opsional)<textarea maxLength={2000} value={notes} onChange={(event) => setNotes(event.target.value)} className="mt-1.5 h-20 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-normal outline-none focus:border-primary focus:ring-2 focus:ring-primary/25" /></label>
           <div className="max-h-52 overflow-auto border-y border-slate-100 py-2">
-            {cart.map(({ product, quantity }) => <div key={product.id} className="flex items-start gap-3 py-2">
-              <div className="min-w-0 flex-1"><strong className="block truncate text-xs text-navy">{product.name}</strong><span className="mt-1 block text-[11px] text-slate-500">{money(product.rent_price_per_day)} × {quantity} unit × {days} hari · Subtotal {money(Number(product.rent_price_per_day) * quantity * days)}</span>
-                <div className="mt-2 flex items-center gap-2"><button type="button" onClick={() => changeQuantity(product.id, -1)} aria-label={`Kurangi ${product.name}`} className="grid size-7 place-items-center rounded-md border border-slate-200 text-slate-600"><span aria-hidden="true">−</span></button><span className="min-w-5 text-center text-xs font-semibold">{quantity}</span><button type="button" disabled={availableUnits(product) < 1} onClick={() => changeQuantity(product.id, 1)} aria-label={`Tambah ${product.name}`} className="grid size-7 place-items-center rounded-md border border-slate-200 text-slate-600 disabled:opacity-40"><Plus size={13} /></button></div>
+            {cart.map(({ id, product, variant, quantity }) => { const price = Number(variant?.rent_price_per_day ?? product.rent_price_per_day); return <div key={id} className="flex items-start gap-3 py-2">
+              <div className="min-w-0 flex-1"><strong className="block truncate text-xs text-navy">{product.name}</strong>{variant && <span className="mt-1 block text-[11px] text-slate-500">{[variant.name, variant.color, variant.size].filter(Boolean).join(' · ')}</span>}<span className="mt-1 block text-[11px] text-slate-500">{money(price)} × {quantity} unit × {days} hari · Subtotal {money(price * quantity * days)}</span>
+                <div className="mt-2 flex items-center gap-2"><button type="button" onClick={() => changeQuantity(id, -1)} aria-label={`Kurangi ${product.name}`} className="grid size-7 place-items-center rounded-md border border-slate-200 text-slate-600"><span aria-hidden="true">−</span></button><span className="min-w-5 text-center text-xs font-semibold">{quantity}</span><button type="button" disabled={availableUnits(product, variant, id) < 1} onClick={() => changeQuantity(id, 1)} aria-label={`Tambah ${product.name}`} className="grid size-7 place-items-center rounded-md border border-slate-200 text-slate-600 disabled:opacity-40"><Plus size={13} /></button></div>
               </div>
-              <button type="button" onClick={() => setCart((current) => current.filter((item) => item.product.id !== product.id))} aria-label={`Hapus ${product.name}`} className="grid size-8 place-items-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={15} /></button>
-            </div>)}
+              <button type="button" onClick={() => setCart((current) => current.filter((item) => item.id !== id))} aria-label={`Hapus ${product.name}`} className="grid size-8 place-items-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={15} /></button>
+            </div>})}
             {!cart.length && <div className="grid min-h-16 place-items-center text-center text-xs text-slate-500">Pilih produk untuk memulai.</div>}
           </div>
           <div className="flex items-center justify-between text-sm text-slate-600"><span>Durasi {days || 0} hari · Total</span><strong className="text-lg font-bold text-navy">{money(total)}</strong></div>
@@ -485,7 +499,10 @@ export default function AdminRentalsPage({ mode = 'all' }) {
             <td className="h-14 whitespace-nowrap px-4 font-semibold text-navy">{rental.rental_number}</td>
             <td className="px-4"><span className="block font-medium text-navy">{rental.customer?.name || '—'}</span><span className="mt-1 block text-[10px]">{rental.customer?.email || ''}</span></td>
             <td className="px-4">{rental.village_name}</td>
-            <td className="max-w-56 px-4">{(rental.rental_items || []).map((item) => `${item.product?.name || 'Produk'} × ${item.quantity}`).join(', ')}</td>
+            <td className="max-w-56 px-4">{(rental.rental_items || []).map((item) => {
+              const label = variantLabel(item)
+              return `${item.product?.name || 'Produk'}${label ? ` · ${label}` : ''} × ${item.quantity}`
+            }).join(', ')}</td>
             <td className="whitespace-nowrap px-4">{(rental.rental_items || []).map((item) => `${formatDate(item.start_date)}–${formatDate(item.return_date)}`).join(', ')}</td>
             <td className="whitespace-nowrap px-4 font-semibold text-navy">{money(rental.total_amount)}</td>
             <td className="px-4"><span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-[10px] font-semibold ${rental.status === 'returned' ? 'bg-emerald-50 text-emerald-700' : ['cancelled', 'rejected'].includes(rental.status) ? 'bg-slate-100 text-slate-600' : rental.status === 'active' ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-800'}`}>{rental.display_status || statusLabels[rental.status] || rental.status}</span></td>
@@ -515,7 +532,7 @@ export default function AdminRentalsPage({ mode = 'all' }) {
               ? lateDays(item.return_date, comparisonDate)
               : 0
             return <div key={item.id} className="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600">
-              <p className="m-0 font-semibold text-navy">{item.product?.name || 'Produk'} · {item.quantity} unit</p>
+              <p className="m-0 font-semibold text-navy">{item.product?.name || 'Produk'}{variantLabel(item) ? ` · ${variantLabel(item)}` : ''} · {item.quantity} unit</p>
               <p className="mb-0 mt-1">Mulai: {formatDate(item.start_date)} · Tanggal pengembalian: {formatDate(item.return_date)} · Durasi: {item.rental_days} hari</p>
               {overdue > 0 && <p className="mb-0 mt-1 font-semibold text-red-700">{selectedRental.status === 'returned' ? 'Dikembalikan terlambat' : 'Terlambat'} {overdue} hari. Denda belum diterapkan karena aturan denda belum tersedia.</p>}
               {selectedRental.status === 'returned' && <p className="mb-0 mt-1">Kondisi saat dikembalikan: {returnConditionLabels[item.return_condition] || item.return_condition || 'Tidak tercatat.'}</p>}

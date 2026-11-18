@@ -83,7 +83,7 @@ export default function CustomerRentalCheckout() {
         <div className="space-y-4">{rentalItems.map((item) => {
           const days = rentalDays(item.startDate, item.returnDate)
           return <div key={item.id} className="border-b border-[#DDE2E9] pb-3 last:border-0">
-            <p className="mb-1 text-xs font-semibold text-navy">{item.name} × {item.quantity}</p>
+            <p className="mb-1 text-xs font-semibold text-navy">{item.name}{item.variantId ? ` · ${[item.variantName, item.variantDesignName, item.variantColor, item.variantSize, item.variantOptions?.capacity].filter(Boolean).join(' · ')}` : ''} × {item.quantity}</p>
             <p className="mb-1 flex items-center gap-1 text-[11px] text-[#566274]"><CalendarDays size={13} />{item.startDate || 'Tanggal mulai'} – {item.returnDate || 'Tanggal kembali'}</p>
             <p className="mb-0 text-[11px] text-[#566274]">{days} hari × {money(item.unitPrice)} / unit / hari</p>
             <b className="mt-1 block text-xs text-navy">{money(item.unitPrice * item.quantity * days)}</b>

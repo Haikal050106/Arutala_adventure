@@ -67,7 +67,7 @@ module Api
       end
 
       def order_params
-        params.require(:order).permit(:customer_id, :status, :notes, items: %i[product_id quantity])
+        params.require(:order).permit(:customer_id, :status, :notes,         items: %i[product_id variant_id quantity])
       end
 
       def serialize_order(order)
@@ -76,8 +76,13 @@ module Api
           include: {
             customer: { only: %i[id name email phone village_name] },
             order_items: {
-              only: %i[id product_id quantity unit_price subtotal],
-              include: { product: { only: %i[id slug name] } }
+              only: %i[
+                id product_id product_variant_id variant_name variant_design_name variant_color variant_size variant_options quantity unit_price subtotal
+              ],
+              include: {
+                product: { only: %i[id slug name] },
+                product_variant: { only: %i[id name design_name color size capacity options] }
+              }
             },
             payments: { only: Payment::SERIALIZED_FIELDS }
           }

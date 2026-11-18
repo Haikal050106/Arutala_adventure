@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_11_213000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_18_162000) do
   create_table "auth_sessions", force: :cascade do |t|
     t.integer "user_id", null: false
     t.string "token_digest", limit: 64, null: false
@@ -49,8 +49,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_11_213000) do
     t.decimal "subtotal", precision: 14, scale: 2, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "product_variant_id"
+    t.string "variant_name", limit: 100
+    t.string "variant_color", limit: 60
+    t.string "variant_size", limit: 40
+    t.json "variant_options", default: {}, null: false
+    t.string "variant_design_name", limit: 100
     t.index ["order_id"], name: "index_order_items_on_order_id"
     t.index ["product_id"], name: "index_order_items_on_product_id"
+    t.index ["product_variant_id"], name: "index_order_items_on_product_variant_id"
     t.check_constraint "quantity > 0", name: "order_items_quantity_positive"
     t.check_constraint "subtotal >= 0", name: "order_items_subtotal_nonnegative"
     t.check_constraint "unit_price >= 0", name: "order_items_unit_price_nonnegative"
@@ -114,7 +121,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_11_213000) do
   end
 
   create_table "product_photos", force: :cascade do |t|
-    t.integer "product_id", null: false
+    t.integer "product_id"
     t.string "secure_url", limit: 2048, null: false
     t.string "public_id", limit: 255, null: false
     t.string "alt_text", limit: 255, null: false
@@ -122,10 +129,39 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_11_213000) do
     t.boolean "is_primary", default: false, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "product_variant_id"
     t.index ["product_id", "position"], name: "index_product_photos_on_product_id_and_position"
     t.index ["product_id"], name: "index_product_photos_on_product_id"
     t.index ["product_id"], name: "index_product_photos_one_primary_per_product", unique: true, where: "is_primary = 1"
+    t.index ["product_variant_id"], name: "index_product_photos_on_product_variant_id"
+    t.index ["product_variant_id"], name: "index_product_photos_one_primary_per_variant", unique: true, where: "is_primary = 1"
     t.index ["public_id"], name: "index_product_photos_on_public_id", unique: true
+    t.check_constraint "(product_id IS NOT NULL AND product_variant_id IS NULL) OR (product_id IS NULL AND product_variant_id IS NOT NULL)", name: "product_photos_exactly_one_owner"
+  end
+
+  create_table "product_variants", force: :cascade do |t|
+    t.integer "product_id", null: false
+    t.string "name", limit: 100, null: false
+    t.string "color", limit: 60, default: "", null: false
+    t.string "size", limit: 40, default: "", null: false
+    t.json "options", default: {}, null: false
+    t.decimal "sale_price", precision: 12, scale: 2
+    t.decimal "rent_price_per_day", precision: 12, scale: 2
+    t.integer "sale_stock", default: 0, null: false
+    t.integer "rental_stock", default: 0, null: false
+    t.string "image_url", limit: 2048
+    t.string "image_alt", limit: 255
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.string "design_name", limit: 100, default: "Default", null: false
+    t.string "capacity", limit: 40, default: "", null: false
+    t.index ["product_id", "name", "design_name", "color", "size", "capacity"], name: "index_product_variants_on_product_model_design_inventory", unique: true
+    t.index ["product_id"], name: "index_product_variants_on_product_id"
+    t.check_constraint "rent_price_per_day IS NULL OR rent_price_per_day >= 0", name: "product_variants_rent_price_nonnegative"
+    t.check_constraint "rental_stock >= 0", name: "product_variants_rental_stock_nonnegative"
+    t.check_constraint "sale_price IS NULL OR sale_price >= 0", name: "product_variants_sale_price_nonnegative"
+    t.check_constraint "sale_stock >= 0", name: "product_variants_sale_stock_nonnegative"
   end
 
   create_table "products", force: :cascade do |t|
@@ -162,8 +198,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_11_213000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.text "return_condition"
+    t.integer "product_variant_id"
+    t.string "variant_name", limit: 100
+    t.string "variant_color", limit: 60
+    t.string "variant_size", limit: 40
+    t.json "variant_options", default: {}, null: false
+    t.string "variant_design_name", limit: 100
     t.index ["product_id", "start_date", "return_date"], name: "idx_on_product_id_start_date_return_date_845de10e75"
     t.index ["product_id"], name: "index_rental_items_on_product_id"
+    t.index ["product_variant_id"], name: "index_rental_items_on_product_variant_id"
     t.index ["rental_id"], name: "index_rental_items_on_rental_id"
     t.check_constraint "quantity > 0", name: "rental_items_quantity_positive"
     t.check_constraint "rental_days > 0", name: "rental_items_days_positive"
@@ -220,14 +263,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_11_213000) do
 
   add_foreign_key "auth_sessions", "users", on_delete: :cascade
   add_foreign_key "order_items", "orders", on_delete: :cascade
+  add_foreign_key "order_items", "product_variants"
   add_foreign_key "order_items", "products", on_delete: :restrict
   add_foreign_key "orders", "customers", on_delete: :restrict
   add_foreign_key "payments", "orders", on_delete: :restrict
   add_foreign_key "payments", "rentals", on_delete: :restrict
   add_foreign_key "payments", "users", column: "confirmed_by_id", on_delete: :nullify
   add_foreign_key "payments", "users", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "product_photos", "product_variants"
   add_foreign_key "product_photos", "products", on_delete: :cascade
+  add_foreign_key "product_variants", "products"
   add_foreign_key "products", "categories"
+  add_foreign_key "rental_items", "product_variants"
   add_foreign_key "rental_items", "products", on_delete: :restrict
   add_foreign_key "rental_items", "rentals", on_delete: :cascade
   add_foreign_key "rental_status_histories", "rentals"

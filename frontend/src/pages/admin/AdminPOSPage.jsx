@@ -32,6 +32,7 @@ export default function AdminPOSPage() {
   const [query, setQuery] = useState('')
   const [customerId, setCustomerId] = useState('')
   const [cart, setCart] = useState([])
+  const [selectedVariantIds, setSelectedVariantIds] = useState({})
   const [saving, setSaving] = useState(false)
   const [cashReceived, setCashReceived] = useState('')
   const [paymentDialog, setPaymentDialog] = useState(null)
@@ -73,7 +74,7 @@ export default function AdminPOSPage() {
     const searchText = `${product.name} ${product.category?.name || ''}`.toLowerCase()
     return searchText.includes(query.trim().toLowerCase())
   }), [products, query])
-  const total = cart.reduce((sum, item) => sum + Number(item.product.sale_price) * item.quantity, 0)
+  const total = cart.reduce((sum, item) => sum + Number(item.variant?.sale_price ?? item.product.sale_price) * item.quantity, 0)
 
   const selectCustomer = (id, customer) => {
     setCustomerId(id)
@@ -203,22 +204,24 @@ export default function AdminPOSPage() {
     }
   }
 
-  const addProduct = (product) => {
+  const addProduct = (product, variant = null) => {
+    const inventory = variant || product
+    const lineId = `${product.id}-${variant?.id || 'base'}`
     setCart((current) => {
-      const existing = current.find((item) => item.product.id === product.id)
+      const existing = current.find((item) => item.id === lineId)
       if (existing) {
-        if (existing.quantity >= Number(product.sale_stock)) return current
-        return current.map((item) => item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item)
+        if (existing.quantity >= Number(inventory.sale_stock)) return current
+        return current.map((item) => item.id === lineId ? { ...item, quantity: item.quantity + 1 } : item)
       }
-      if (Number(product.sale_stock) <= 0) return current
-      return [...current, { product, quantity: 1 }]
+      if (Number(inventory.sale_stock) <= 0) return current
+      return [...current, { id: lineId, product, variant, quantity: 1 }]
     })
   }
 
-  const updateQuantity = (productId, delta) => {
+  const updateQuantity = (lineId, delta) => {
     setCart((current) => current
-      .map((item) => item.product.id === productId
-        ? { ...item, quantity: Math.min(Number(item.product.sale_stock), item.quantity + delta) }
+      .map((item) => item.id === lineId
+        ? { ...item, quantity: Math.min(Number(item.variant?.sale_stock ?? item.product.sale_stock), item.quantity + delta) }
         : item)
       .filter((item) => item.quantity > 0))
   }
@@ -250,7 +253,7 @@ export default function AdminPOSPage() {
         body: {
           order: {
             customer_id: Number(customerId),
-            items: cart.map(({ product, quantity }) => ({ product_id: product.id, quantity })),
+            items: cart.map(({ product, variant, quantity }) => ({ product_id: product.id, variant_id: variant?.id, quantity })),
           },
         },
       })
@@ -350,12 +353,20 @@ export default function AdminPOSPage() {
             <label className="relative min-w-[190px] flex-1 sm:max-w-xs"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari produk..." aria-label="Cari produk" className="h-10 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-xs outline-none focus:border-primary focus:ring-2 focus:ring-primary/25" /></label>
           </div>
           {visibleProducts.length ? <div className="grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-4">
-            {visibleProducts.map((product) => <button type="button" key={product.id} disabled={Number(product.sale_stock) < 1} onClick={() => addProduct(product)} className="rounded-xl border border-slate-200 p-3 text-left transition hover:border-primary/50 hover:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50">
-              <span className="block truncate text-[10px] text-slate-500">{product.category?.name || 'Produk'}</span>
-              <strong className="mt-1 block min-h-9 text-xs leading-snug text-navy">{product.name}</strong>
-              <span className="mt-2 block text-sm font-bold text-secondary">{money(product.sale_price)}</span>
-              <span className="mt-2 block text-[10px] font-medium text-slate-500">Stok jual: {product.sale_stock}</span>
-            </button>)}
+            {visibleProducts.map((product) => {
+              const variants = (product.variants || []).filter((variant) => variant.active !== false)
+              const variantId = selectedVariantIds[product.id] || variants[0]?.id || null
+              const variant = variants.find((item) => item.id === variantId) || null
+              const inventory = variant || product
+              return <article key={product.id} className="rounded-xl border border-slate-200 p-3">
+                <span className="block truncate text-[10px] text-slate-500">{product.category?.name || 'Produk'}</span>
+                <strong className="mt-1 block min-h-9 text-xs leading-snug text-navy">{product.name}</strong>
+                {variants.length > 0 && <label className="mt-2 block text-[10px] font-semibold text-slate-600">Model / desain / pilihan<select value={variant?.id || ''} onChange={(event) => setSelectedVariantIds((current) => ({ ...current, [product.id]: Number(event.target.value) }))} className="mt-1 h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-xs"><option value="">Pilih varian</option>{variants.map((item) => <option key={item.id} value={item.id} disabled={Number(item.sale_stock) < 1}>{[item.name, item.design_name, item.color, item.size, item.capacity || item.options?.capacity].filter(Boolean).join(' · ')} · stok {item.sale_stock}</option>)}</select></label>}
+                <span className="mt-2 block text-sm font-bold text-secondary">{money(variant?.sale_price ?? product.sale_price)}</span>
+                <span className="mt-2 block text-[10px] font-medium text-slate-500">Stok jual: {inventory.sale_stock}</span>
+                <button type="button" disabled={Number(inventory.sale_stock) < 1 || variants.length > 0 && !variant} onClick={() => addProduct(product, variant)} className="mt-2 h-9 w-full rounded-md bg-canvas text-xs font-semibold text-navy hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-50">Tambah ke transaksi</button>
+              </article>
+            })}
           </div> : <p className="py-10 text-center text-sm text-slate-500">Produk tidak ditemukan atau belum tersedia untuk dijual.</p>}
         </section>
 
@@ -364,12 +375,12 @@ export default function AdminPOSPage() {
           <div className="p-5">
             <CustomerPicker customers={customers} value={customerId} onChange={selectCustomer} />
             <div className="my-4 max-h-72 min-h-24 overflow-auto">
-              {cart.map(({ product, quantity }) => <div key={product.id} className="flex items-start gap-3 border-b border-slate-100 py-3 last:border-0">
-                <div className="min-w-0 flex-1"><strong className="block truncate text-xs text-navy">{product.name}</strong><span className="mt-1 block text-[11px] text-slate-500">{money(product.sale_price)} / unit</span>
-                  <div className="mt-2 flex items-center gap-2"><button type="button" onClick={() => updateQuantity(product.id, -1)} aria-label={`Kurangi ${product.name}`} className="grid size-7 place-items-center rounded-md border border-slate-200 text-slate-600 hover:border-primary/50"><Minus size={13} /></button><span className="min-w-5 text-center text-xs font-semibold">{quantity}</span><button type="button" disabled={quantity >= Number(product.sale_stock)} onClick={() => updateQuantity(product.id, 1)} aria-label={`Tambah ${product.name}`} className="grid size-7 place-items-center rounded-md border border-slate-200 text-slate-600 hover:border-primary/50 disabled:opacity-40"><Plus size={13} /></button></div>
+              {cart.map(({ id, product, variant, quantity }) => { const price = Number(variant?.sale_price ?? product.sale_price); const stock = Number(variant?.sale_stock ?? product.sale_stock); return <div key={id} className="flex items-start gap-3 border-b border-slate-100 py-3 last:border-0">
+                <div className="min-w-0 flex-1"><strong className="block truncate text-xs text-navy">{product.name}</strong>{variant && <span className="mt-1 block text-[11px] text-slate-500">{[variant.name, variant.design_name, variant.color, variant.size, variant.capacity || variant.options?.capacity].filter(Boolean).join(' · ')}</span>}<span className="mt-1 block text-[11px] text-slate-500">{money(price)} / unit</span>
+                  <div className="mt-2 flex items-center gap-2"><button type="button" onClick={() => updateQuantity(id, -1)} aria-label={`Kurangi ${product.name}`} className="grid size-7 place-items-center rounded-md border border-slate-200 text-slate-600 hover:border-primary/50"><Minus size={13} /></button><span className="min-w-5 text-center text-xs font-semibold">{quantity}</span><button type="button" disabled={quantity >= stock} onClick={() => updateQuantity(id, 1)} aria-label={`Tambah ${product.name}`} className="grid size-7 place-items-center rounded-md border border-slate-200 text-slate-600 hover:border-primary/50 disabled:opacity-40"><Plus size={13} /></button></div>
                 </div>
-                <button type="button" onClick={() => setCart((current) => current.filter((item) => item.product.id !== product.id))} aria-label={`Hapus ${product.name}`} className="grid size-8 place-items-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={15} /></button>
-              </div>)}
+                <button type="button" onClick={() => setCart((current) => current.filter((item) => item.id !== id))} aria-label={`Hapus ${product.name}`} className="grid size-8 place-items-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={15} /></button>
+              </div>})}
               {!cart.length && <div className="grid min-h-24 place-items-center rounded-lg border border-dashed border-slate-200 px-4 text-center text-xs text-slate-500">Keranjang masih kosong. Pilih produk untuk memulai.</div>}
             </div>
             <div className="border-t border-slate-200 pt-4"><div className="flex items-center justify-between text-sm text-slate-600"><span>Total yang harus dibayar</span><strong className="text-lg font-bold text-secondary">{money(total)}</strong></div>

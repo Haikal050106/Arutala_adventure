@@ -2,29 +2,31 @@ module Api
   module V1
     class ProductPhotosController < BaseController
       before_action :require_admin!
-      before_action :set_product
+      before_action :set_photo_owner
       before_action :set_photo, only: %i[update destroy]
 
       def create
-        if @product.product_photos.count >= ProductPhotoStorage::MAX_PHOTOS
-          return render_error("photo_limit_reached", "Maksimal #{ProductPhotoStorage::MAX_PHOTOS} foto untuk satu produk.", :unprocessable_entity)
+        if @photo_owner.product_photos.count >= ProductPhotoStorage::MAX_PHOTOS
+          return render_error("photo_limit_reached", "Maksimal #{ProductPhotoStorage::MAX_PHOTOS} foto untuk satu produk atau desain.", :unprocessable_entity)
         end
 
         storage_result = ProductPhotoStorage.upload!(params[:file])
         photo = nil
 
         ProductPhoto.transaction do
-          @product.lock!
-          make_primary = ActiveModel::Type::Boolean.new.cast(params[:is_primary]) || @product.product_photos.empty?
-          @product.product_photos.where(is_primary: true).update_all(is_primary: false) if make_primary
-          photo = @product.product_photos.create!(
+          @photo_owner.lock!
+          make_primary = ActiveModel::Type::Boolean.new.cast(params[:is_primary]) || @photo_owner.product_photos.empty?
+          @photo_owner.product_photos.where(is_primary: true).update_all(is_primary: false) if make_primary
+          photo = @photo_owner.product_photos.create!(
             secure_url: storage_result.fetch(:secure_url),
             public_id: storage_result.fetch(:public_id),
-            alt_text: @product.name,
-            position: @product.product_photos.maximum(:position).to_i + 1,
-            is_primary: make_primary
+            alt_text: @photo_owner.is_a?(Product) ? @photo_owner.name : @photo_owner.display_label,
+            position: @photo_owner.product_photos.maximum(:position).to_i + 1,
+            is_primary: make_primary,
+            product: @photo_owner.is_a?(Product) ? @photo_owner : nil,
+            product_variant: @photo_owner.is_a?(ProductVariant) ? @photo_owner : nil
           )
-          sync_product_image!
+          sync_owner_image!
         end
 
         render json: serialize_photo(photo), status: :created
@@ -46,16 +48,16 @@ module Api
         old_public_id = @photo.public_id if storage_result
 
         ProductPhoto.transaction do
-          @product.lock!
+          @photo_owner.lock!
           attributes = {}
           attributes[:secure_url] = storage_result.fetch(:secure_url) if storage_result
           attributes[:public_id] = storage_result.fetch(:public_id) if storage_result
           make_primary = params.key?(:is_primary) && ActiveModel::Type::Boolean.new.cast(params[:is_primary])
-          @product.product_photos.where(is_primary: true).where.not(id: @photo.id).update_all(is_primary: false) if make_primary
+          @photo_owner.product_photos.where(is_primary: true).where.not(id: @photo.id).update_all(is_primary: false) if make_primary
           attributes[:is_primary] = make_primary if params.key?(:is_primary)
           attributes[:position] = params[:position].to_i if params.key?(:position)
           @photo.update!(attributes)
-          sync_product_image!
+          sync_owner_image!
         end
 
         cleanup_warning = destroy_replaced_photo(old_public_id) if old_public_id
@@ -81,10 +83,10 @@ module Api
           was_primary = @photo.is_primary?
           @photo.destroy!
           if was_primary
-            next_photo = @product.product_photos.first
+            next_photo = @photo_owner.product_photos.first
             next_photo&.update!(is_primary: true)
           end
-          sync_product_image!
+          sync_owner_image!
         end
         head :no_content
       rescue ProductPhotoStorage::ConfigurationError => error
@@ -96,17 +98,22 @@ module Api
 
       private
 
-      def set_product
+      def set_photo_owner
         @product = Product.find_by!(slug: params[:product_id])
+        @photo_owner = if params[:variant_id].present?
+          @product.product_variants.find(params[:variant_id])
+        else
+          @product
+        end
       end
 
       def set_photo
-        @photo = @product.product_photos.find(params[:id])
+        @photo = @photo_owner.product_photos.find(params[:id])
       end
 
-      def sync_product_image!
-        photo = @product.product_photos.find_by(is_primary: true)
-        @product.update_columns(image_url: photo&.secure_url, image_alt: photo&.alt_text)
+      def sync_owner_image!
+        photo = @photo_owner.product_photos.find_by(is_primary: true)
+        @photo_owner.update_columns(image_url: photo&.secure_url, image_alt: photo&.alt_text)
       end
 
       def cleanup_new_photo(storage_result)
@@ -121,7 +128,7 @@ module Api
         ProductPhotoStorage.destroy!(public_id)
         nil
       rescue ProductPhotoStorage::ConfigurationError, ProductPhotoStorage::StorageError => error
-        Rails.logger.error("Cloudinary old photo cleanup failed for product #{@product.id}: #{error.message}")
+        Rails.logger.error("Cloudinary old photo cleanup failed for owner #{@photo_owner.id}: #{error.message}")
         "Foto baru tersimpan, tetapi foto lama belum dapat dibersihkan dari Cloudinary."
       end
 

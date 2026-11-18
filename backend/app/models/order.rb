@@ -41,37 +41,11 @@ class Order < ApplicationRecord
     transaction do
       raise ArgumentError, "Minimal satu item pesanan wajib disertakan." unless items.is_a?(Array) && items.any?
 
-      normalized_items = items.map do |item|
-        attributes = item.to_h.symbolize_keys
-        product_id = Integer(attributes.fetch(:product_id))
-        quantity = Integer(attributes.fetch(:quantity))
-        raise ArgumentError, "Jumlah produk harus lebih dari nol." unless quantity.positive?
-
-        { product_id: product_id, quantity: quantity }
-      rescue KeyError, ArgumentError, TypeError
-        raise ArgumentError, "Item pesanan memerlukan product_id dan jumlah positif."
-      end
-      products = Product.where(id: normalized_items.map { |item| item.fetch(:product_id) }.uniq)
-        .order(:id).lock.index_by(&:id)
-      raise ActiveRecord::RecordNotFound if products.length != normalized_items.map { |item| item.fetch(:product_id) }.uniq.length
-
-      normalized_items.group_by { |item| item.fetch(:product_id) }.each do |product_id, product_items|
-        product = products.fetch(product_id)
-        quantity = product_items.sum { |item| item.fetch(:quantity) }
-        raise InsufficientStock, product.name if quantity > product.sale_stock
-      end
-
+      normalized_items = normalize_purchase_items(items)
+      products, variants = lock_purchase_inventory(normalized_items)
+      check_purchase_stock!(normalized_items, products, variants, include_pending: false)
       order = new(customer: customer, notes: notes)
-      normalized_items.each do |attributes|
-        product = products.fetch(attributes.fetch(:product_id))
-        order.order_items.build(
-          product: product,
-          quantity: attributes.fetch(:quantity),
-          unit_price: product.sale_price,
-          subtotal: product.sale_price * attributes.fetch(:quantity)
-        )
-      end
-      order.total_amount = order.order_items.sum(&:subtotal)
+      build_purchase_items!(order, normalized_items, products, variants)
       order.save!
       order
     end
@@ -88,38 +62,11 @@ class Order < ApplicationRecord
 
       raise ArgumentError, "Minimal satu item pesanan wajib disertakan." unless items.is_a?(Array) && items.any?
 
-      normalized_items = items.map do |item|
-        attributes = item.to_h.symbolize_keys
-        product_id = positive_integer(attributes.fetch(:product_id))
-        quantity = positive_integer(attributes.fetch(:quantity))
-        { product_id: product_id, quantity: quantity }
-      rescue KeyError, ArgumentError, TypeError
-        raise ArgumentError, "Item pesanan memerlukan product_id dan jumlah positif."
-      end
-      products = Product.where(id: normalized_items.map { |item| item.fetch(:product_id) }.uniq)
-        .order(:id).lock.index_by(&:id)
-      raise ActiveRecord::RecordNotFound if products.length != normalized_items.map { |item| item.fetch(:product_id) }.uniq.length
-
-      normalized_items.group_by { |item| item.fetch(:product_id) }.each do |product_id, product_items|
-        product = products.fetch(product_id)
-        quantity = product_items.sum { |item| item.fetch(:quantity) }
-        reserved_quantity = joins(:order_items)
-          .where(status: "pending_confirmation", order_items: { product_id: product_id })
-          .sum("order_items.quantity")
-        raise InsufficientStock, product.name if quantity + reserved_quantity > product.sale_stock
-      end
-
+      normalized_items = normalize_purchase_items(items)
+      products, variants = lock_purchase_inventory(normalized_items)
+      check_purchase_stock!(normalized_items, products, variants, include_pending: true)
       purchase = new(customer: customer, notes: notes, idempotency_key: idempotency_key)
-      normalized_items.each do |attributes|
-        product = products.fetch(attributes.fetch(:product_id))
-        purchase.order_items.build(
-          product: product,
-          quantity: attributes.fetch(:quantity),
-          unit_price: product.sale_price,
-          subtotal: product.sale_price * attributes.fetch(:quantity)
-        )
-      end
-      purchase.total_amount = purchase.order_items.sum(&:subtotal)
+      build_purchase_items!(purchase, normalized_items, products, variants)
       purchase.save!
       created = true
       purchase
@@ -191,17 +138,97 @@ class Order < ApplicationRecord
   end
 
   def adjust_product_stock!(direction)
-    order_items.includes(:product).order(:product_id).each do |item|
-      product = item.product
-      quantity = item.quantity
-      stock_scope = Product.where(id: product.id)
-      stock_scope = stock_scope.where("sale_stock >= ?", quantity) if direction.negative?
-      adjustment = if direction.negative?
-        [ "sale_stock = sale_stock - ?, updated_at = CURRENT_TIMESTAMP", quantity ]
-      else
-        [ "sale_stock = sale_stock + ?, updated_at = CURRENT_TIMESTAMP", quantity ]
-      end
-      raise InsufficientStock, product.name unless stock_scope.update_all(adjustment) == 1
+    adjusted_inventory_keys = []
+    order_items.includes(:product, :product_variant).each do |item|
+      inventory = item.product_variant || item.product
+      name = item.product_variant&.display_label || item.product.name
+      inventory_key = [ item.product_variant_id, item.product_id ]
+      item_scope = order_items.where(product_variant_id: item.product_variant_id)
+      item_scope = item_scope.where(product_id: item.product_id) unless item.product_variant_id
+      quantity = item_scope.sum(:quantity)
+      next if adjusted_inventory_keys.include?(inventory_key)
+
+      adjusted_inventory_keys << inventory_key
+      stock_column = "sale_stock"
+      stock_scope = inventory.class.where(id: inventory.id)
+      stock_scope = stock_scope.where("#{stock_column} >= ?", quantity) if direction.negative?
+      adjustment = direction.negative? ?
+        [ "#{stock_column} = #{stock_column} - ?, updated_at = CURRENT_TIMESTAMP", quantity ] :
+        [ "#{stock_column} = #{stock_column} + ?, updated_at = CURRENT_TIMESTAMP", quantity ]
+      raise InsufficientStock, name unless stock_scope.update_all(adjustment) == 1
     end
+  end
+
+  def self.normalize_purchase_items(items)
+    raise ArgumentError, "Minimal satu item pesanan wajib disertakan." unless items.is_a?(Array) && items.any?
+
+    items.map do |item|
+      attributes = item.to_h.symbolize_keys
+      product_id = send(:positive_integer, attributes.fetch(:product_id))
+      quantity = send(:positive_integer, attributes.fetch(:quantity))
+      variant_id = attributes[:variant_id].present? ? send(:positive_integer, attributes[:variant_id]) : nil
+      { product_id: product_id, variant_id: variant_id, quantity: quantity }
+    rescue KeyError, ArgumentError, TypeError
+      raise ArgumentError, "Item pesanan memerlukan product_id, jumlah positif, dan variant_id untuk produk bervarian."
+    end
+  end
+
+  def self.lock_purchase_inventory(items)
+    product_ids = items.map { |item| item.fetch(:product_id) }.uniq
+    products = Product.where(id: product_ids).order(:id).lock.index_by(&:id)
+    raise ActiveRecord::RecordNotFound if products.length != product_ids.length
+
+    variant_ids = items.filter_map { |item| item[:variant_id] }.uniq
+    variants = ProductVariant.where(id: variant_ids).order(:id).lock.index_by(&:id)
+    raise ActiveRecord::RecordNotFound if variants.length != variant_ids.length
+    items.each do |item|
+      product = products.fetch(item.fetch(:product_id))
+      variant = variants[item[:variant_id]]
+      if variant
+        raise ArgumentError, "Varian tidak termasuk produk yang dipilih." unless variant.product_id == product.id && variant.active?
+      elsif product.product_variants.exists?
+        raise ArgumentError, "Pilih varian untuk produk ini."
+      end
+    end
+    [ products, variants ]
+  end
+
+  def self.check_purchase_stock!(items, products, variants, include_pending:)
+    items.group_by { |item| [ item[:product_id], item[:variant_id] ] }.each do |(product_id, variant_id), grouped_items|
+      product = products.fetch(product_id)
+      inventory = variants[variant_id] || product
+      quantity = grouped_items.sum { |item| item.fetch(:quantity) }
+      if include_pending
+        pending_scope = self.joins(:order_items).where(status: "pending_confirmation")
+        pending_scope = if variant_id
+          pending_scope.where(order_items: { product_variant_id: variant_id })
+        else
+          pending_scope.where(order_items: { product_id: product_id, product_variant_id: nil })
+        end
+        quantity += pending_scope.sum("order_items.quantity")
+      end
+      raise InsufficientStock, (variants[variant_id]&.display_label || product.name) if quantity > inventory.sale_stock
+    end
+  end
+
+  def self.build_purchase_items!(order, items, products, variants)
+    items.each do |attributes|
+      product = products.fetch(attributes.fetch(:product_id))
+      variant = variants[attributes[:variant_id]]
+      unit_price = variant&.sale_price || product.sale_price
+      order.order_items.build(
+        product: product,
+        product_variant: variant,
+        variant_name: variant&.name,
+        variant_design_name: variant&.design_name,
+        variant_color: variant&.color,
+        variant_size: variant&.size,
+        variant_options: variant ? variant.options.merge("capacity" => variant.capacity).compact_blank : {},
+        quantity: attributes.fetch(:quantity),
+        unit_price: unit_price,
+        subtotal: unit_price * attributes.fetch(:quantity)
+      )
+    end
+    order.total_amount = order.order_items.sum(&:subtotal)
   end
 end
