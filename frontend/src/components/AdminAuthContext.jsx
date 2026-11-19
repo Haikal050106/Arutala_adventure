@@ -1,10 +1,28 @@
 import { useEffect, useMemo, useState } from 'react'
-import { adminApiRequest, clearAdminToken, readAdminToken, saveAdminToken } from '../lib/admin-api'
+import {
+  ADMIN_SESSION_EXPIRED_EVENT,
+  adminApiRequest,
+  clearAdminToken,
+  readAdminToken,
+  saveAdminToken,
+} from '../lib/admin-api'
 import { AdminAuthContext } from './admin-auth-context'
 
 export function AdminAuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [sessionExpired, setSessionExpired] = useState(false)
+
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      clearAdminToken()
+      setUser(null)
+      setSessionExpired(true)
+    }
+
+    window.addEventListener(ADMIN_SESSION_EXPIRED_EVENT, handleSessionExpired)
+    return () => window.removeEventListener(ADMIN_SESSION_EXPIRED_EVENT, handleSessionExpired)
+  }, [])
 
   useEffect(() => {
     const token = readAdminToken()
@@ -32,6 +50,7 @@ export function AdminAuthProvider({ children }) {
       })
       saveAdminToken(result.token)
       setUser(result.user)
+      setSessionExpired(false)
       return result.user
     },
     async logout() {
@@ -45,8 +64,10 @@ export function AdminAuthProvider({ children }) {
       }
       clearAdminToken()
       setUser(null)
+      setSessionExpired(false)
     },
-  }), [loading, user])
+    sessionExpired,
+  }), [loading, sessionExpired, user])
 
   return <AdminAuthContext.Provider value={value}>{children}</AdminAuthContext.Provider>
 }

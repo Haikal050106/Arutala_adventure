@@ -20,6 +20,48 @@ class ApiV1CustomersOrdersAndRentalsTest < ActionDispatch::IntegrationTest
     )
   end
 
+  test "purchase and rental APIs return distinct database-backed payment codes without changing legacy numbers" do
+    initial_sequence = TransactionCodeSequence.find_by(sequence_date: Date.current)&.last_number || 0
+
+    post "/api/v1/orders", params: {
+      order: {
+        customer_id: @customer.id,
+        items: [ { product_id: @product.id, quantity: 1 } ]
+      }
+    }, as: :json
+    assert_response :created
+    purchase = response.parsed_body
+    assert_match(/\AARU-\d{8}-\d{4}\z/, purchase.fetch("payment_code"))
+    assert_equal initial_sequence + 1, purchase.fetch("payment_code").last(4).to_i
+    assert_equal Order.find(purchase.fetch("id")).order_number, purchase.fetch("order_number")
+
+    post "/api/v1/rentals", params: {
+      rental: {
+        customer_id: @customer.id,
+        village_name: "Desa Mendaki",
+        items: [ {
+          product_id: @product.id,
+          quantity: 1,
+          start_date: (Date.current + 10).iso8601,
+          return_date: (Date.current + 12).iso8601
+        } ]
+      }
+    }, as: :json
+    assert_response :created
+    rental = response.parsed_body
+    assert_match(/\AARU-\d{8}-\d{4}\z/, rental.fetch("payment_code"))
+    assert_equal initial_sequence + 2, rental.fetch("payment_code").last(4).to_i
+    assert_equal Rental.find(rental.fetch("id")).rental_number, rental.fetch("rental_number")
+    assert_not_equal purchase.fetch("payment_code"), rental.fetch("payment_code")
+
+    get "/api/v1/orders/#{purchase.fetch('id')}"
+    assert_response :success
+    assert_equal purchase.fetch("payment_code"), response.parsed_body.fetch("payment_code")
+    get "/api/v1/rentals/#{rental.fetch('id')}"
+    assert_response :success
+    assert_equal rental.fetch("payment_code"), response.parsed_body.fetch("payment_code")
+  end
+
   test "customer CRUD persists normalized contact data and protects transaction history" do
     post "/api/v1/customers", params: {
       customer: {
@@ -491,11 +533,94 @@ class ApiV1CustomersOrdersAndRentalsTest < ActionDispatch::IntegrationTest
     assert_equal customer_listed_booking.fetch("customer"), staff_booking.fetch("customer")
     assert_equal customer_listed_booking.fetch("status"), staff_booking.fetch("status")
     assert_equal customer_listed_booking.fetch("total_amount"), staff_booking.fetch("total_amount")
-    assert_equal customer_listed_booking.fetch("rental_items"), staff_booking.fetch("rental_items")
+    assert_equal customer_listed_booking.dig("rental_items", 0, "product_id"), staff_booking.dig("rental_items", 0, "product_id")
+    assert_equal customer_listed_booking.dig("rental_items", 0, "start_date"), staff_booking.dig("rental_items", 0, "start_date")
+    assert_equal customer_listed_booking.dig("rental_items", 0, "return_date"), staff_booking.dig("rental_items", 0, "return_date")
     assert_equal @customer.id, staff_booking.fetch("customer_id")
     assert_equal @product.name, staff_booking.dig("rental_items", 0, "product", "name")
     assert_equal start_date, staff_booking.dig("rental_items", 0, "start_date")
     assert_equal return_date, staff_booking.dig("rental_items", 0, "return_date")
+  end
+
+  test "active rental without rental items does not break the staff rental list" do
+    rental = Rental.create!(
+      customer: @customer,
+      village_name: "Desa Pendakian",
+      status: "active",
+      total_amount: 0
+    )
+
+    get "/api/v1/rentals"
+
+    assert_response :success
+    listed_rental = response.parsed_body.find { |record| record.fetch("id") == rental.id }
+    assert_equal "Sedang Disewa", listed_rental.fetch("display_status")
+  end
+
+  test "customer shoe rental stores size only and admin assigns physical inventory on confirmation" do
+    shoe = Product.create!(
+      category: @category,
+      name: "Sepatu Pendakian",
+      description: "Sepatu untuk pengujian penyewaan.",
+      sale_price: 500_000,
+      rent_price_per_day: 30_000,
+      sale_stock: 0,
+      rental_stock: 0
+    )
+    inventory = ShoeInventory.create!(
+      product: shoe,
+      name: "Arutala Trail",
+      design_name: "Gunung",
+      color: "Hitam",
+      size: "40",
+      rent_price_per_day: 35_000,
+      rental_stock: 2
+    )
+    headers = customer_headers(@customer)
+    start_date = (Date.current + 3).iso8601
+    return_date = (Date.current + 5).iso8601
+
+    post "/api/v1/customer/rentals", params: {
+      rental: {
+        village_name: "Desa Uji",
+        items: [ {
+          product_id: shoe.id,
+          size: "40",
+          quantity: 1,
+          start_date: start_date,
+          return_date: return_date
+        } ]
+      }
+    }, headers: headers.merge("Idempotency-Key" => "shoe-size-valid"), as: :json
+    assert_response :created
+    rental = response.parsed_body
+    assert_nil rental.dig("rental_items", 0, "shoe_inventory_id")
+    assert_equal "40", response.parsed_body.dig("rental_items", 0, "inventory_size")
+    patch "/api/v1/rentals/#{rental.fetch('id')}", params: {
+      rental: {
+        status: "confirmed",
+        shoe_inventory_assignments: [ {
+          rental_item_id: rental.dig("rental_items", 0, "id"),
+          shoe_inventory_id: inventory.id
+        } ]
+      }
+    }
+    assert_response :success
+    assert_equal inventory.id, response.parsed_body.dig("rental_items", 0, "shoe_inventory_id")
+
+    post "/api/v1/customer/rentals", params: {
+      rental: {
+        village_name: "Desa Uji",
+        items: [ {
+          product_id: shoe.id,
+          size: "37",
+          quantity: 1,
+          start_date: start_date,
+          return_date: return_date
+        } ]
+      }
+    }, headers: headers.merge("Idempotency-Key" => "shoe-size-invalid"), as: :json
+    assert_response :unprocessable_entity
   end
 
   test "customer rental booking rejects invalid and past dates" do

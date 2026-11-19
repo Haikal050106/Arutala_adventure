@@ -1,7 +1,9 @@
 class Product < ApplicationRecord
+  SHOE_SIZES = %w[38 39 40 41 42 43].freeze
+
   belongs_to :category
   has_many :product_photos, -> { order(:position, :id) }, dependent: :destroy
-  has_many :product_variants, dependent: :restrict_with_error
+  has_many :shoe_inventories, dependent: :restrict_with_error
 
   before_validation :generate_slug, on: :create
 
@@ -13,11 +15,15 @@ class Product < ApplicationRecord
   validates :image_url, :image_alt, length: { maximum: 255 }, allow_blank: true
 
   def available?
-    if product_variants.exists?
-      product_variants.where(active: true).where("sale_stock > 0 OR rental_stock > 0").exists?
+    if shoe?
+      shoe_inventories.where(active: true).where("sale_stock > 0 OR rental_stock > 0").exists?
     else
       sale_stock.positive? || rental_stock.positive?
     end
+  end
+
+  def shoe?
+    [ name, category&.name ].join(" ").match?(/sepatu|footwear|alas kaki/i)
   end
 
   def primary_photo

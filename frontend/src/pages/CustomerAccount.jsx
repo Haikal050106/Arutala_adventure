@@ -76,6 +76,7 @@ export default function CustomerAccount() {
     payment,
     transaction: {
       type: order.rentalBooking ? 'Penyewaan' : 'Pembelian',
+      code: order.paymentCode,
       number: order.orderNumber || order.id,
       createdAt: order.createdAt,
       totalAmount: order.total,
@@ -101,7 +102,7 @@ export default function CustomerAccount() {
         {visibleOrders.length ? <div className="space-y-3">
           {visibleOrders.map((order) => <article key={`${order.rentalBooking ? 'rental' : 'order'}-${order.id}`} className="rounded-xl border border-[#DDE2E9] bg-white p-4 shadow-[0_2px_12px_rgba(37,37,37,0.04)]">
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <div><p className="mb-1 text-xs font-bold text-navy">{order.orderNumber || order.id}</p><p className="m-0 flex items-center gap-1 text-[11px] text-[#566274]"><CalendarDays size={13} />{new Date(order.createdAt).toLocaleDateString('id-ID', { dateStyle: 'medium' })} · {order.rentalBooking ? 'Booking sewa' : 'Pembelian'}</p></div>
+              <div><p className="mb-1 text-xs font-bold text-navy">{order.paymentCode || order.orderNumber || order.id}</p>{order.paymentCode && <p className="mb-1 text-[10px] text-[#566274]">Nomor transaksi: {order.orderNumber || order.id}</p>}<p className="m-0 flex items-center gap-1 text-[11px] text-[#566274]"><CalendarDays size={13} />{new Date(order.createdAt).toLocaleDateString('id-ID', { dateStyle: 'medium' })} · {order.rentalBooking ? 'Booking sewa' : 'Pembelian'}</p></div>
               <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${statusClass(order.status)}`}>{order.status === 'Menunggu konfirmasi' && order.paymentStatus !== 'Lunas' ? 'Menunggu Pembayaran' : order.status}</span>
             </div>
             <div className="mt-3 space-y-2 border-y border-[#DDE2E9] py-3">
@@ -122,7 +123,7 @@ export default function CustomerAccount() {
       </section>
     </div>
 
-    {visibleOrders.some((order) => !order.prototype && order.status !== 'Dibatalkan' && Number(order.balanceDue) > 0) && <section className="mt-5 rounded-xl border border-[#DDE2E9] bg-white p-4"><h3 className="m-0 text-sm font-semibold text-navy">Pembayaran di toko</h3><p className="mb-3 mt-1 text-xs text-[#566274]">Selesaikan pembayaran langsung di toko Arutala Adventure. Kasir akan memeriksa penerimaan uang dan mencatat pembayaran melalui POS; status pembayaran diperbarui dari Payment Ledger backend.</p><div className="space-y-2">{visibleOrders.filter((order) => !order.prototype && order.status !== 'Dibatalkan' && Number(order.balanceDue) > 0).map((order) => <div key={`offline-${order.rentalBooking ? 'rental' : 'order'}-${order.id}`} className="rounded-lg bg-slate-50 p-3"><p className="m-0 text-xs font-semibold text-navy">{order.orderNumber} · {order.rentalBooking ? 'Penyewaan' : 'Pembelian'}</p><p className="mb-0 mt-1 text-xs text-[#566274]">Status: Menunggu Pembayaran · Sisa tagihan {money(order.balanceDue)}</p></div>)}</div></section>}
+    {visibleOrders.some((order) => !order.prototype && order.status !== 'Dibatalkan' && Number(order.balanceDue) > 0) && <section className="mt-5 rounded-xl border border-[#DDE2E9] bg-white p-4"><h3 className="m-0 text-sm font-semibold text-navy">Pembayaran di toko</h3><p className="mb-3 mt-1 text-xs text-[#566274]">Selesaikan pembayaran langsung di toko Arutala Adventure. Kasir akan memeriksa penerimaan uang dan mencatat pembayaran melalui POS; status pembayaran diperbarui dari Payment Ledger backend.</p><div className="space-y-2">{visibleOrders.filter((order) => !order.prototype && order.status !== 'Dibatalkan' && Number(order.balanceDue) > 0).map((order) => <div key={`offline-${order.rentalBooking ? 'rental' : 'order'}-${order.id}`} className="rounded-lg bg-slate-50 p-3"><p className="m-0 text-xs font-semibold text-navy">{order.paymentCode || order.orderNumber} · {order.rentalBooking ? 'Penyewaan' : 'Pembelian'}</p><p className="mb-0 mt-1 text-xs text-[#566274]">Status: Menunggu Pembayaran · Sisa tagihan {money(order.balanceDue)}</p></div>)}</div></section>}
     {selectedReceipt && <PaymentReceipt {...selectedReceipt} onClose={() => setSelectedReceipt(null)} />}
   </div>
 }

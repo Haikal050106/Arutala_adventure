@@ -12,6 +12,20 @@ export function datesOverlap(startA, endA, startB, endB) {
   return Boolean(startA && endA && startB && endB && startA < endB && startB < endA)
 }
 
+export function uniqueRentalPeriods(items = []) {
+  const periods = new Map()
+
+  for (const item of items) {
+    const startDate = item?.start_date
+    const returnDate = item?.return_date
+    if (!startDate || !returnDate) continue
+
+    periods.set(JSON.stringify([startDate, returnDate]), { startDate, returnDate })
+  }
+
+  return Array.from(periods.values())
+}
+
 export function readLocal(key, fallback) {
   try {
     const stored = localStorage.getItem(key)

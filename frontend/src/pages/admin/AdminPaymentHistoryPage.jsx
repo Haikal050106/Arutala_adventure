@@ -29,6 +29,7 @@ function transactionReceipt(transaction, type, payment) {
     payment,
     transaction: {
       type,
+      code: transaction.payment_code,
       number: isRental ? transaction.rental_number : transaction.order_number,
       createdAt: transaction.created_at,
       totalAmount: Number(transaction.total_amount),
@@ -81,7 +82,7 @@ export default function AdminPaymentHistoryPage() {
     const search = query.trim().toLowerCase()
     if (!search) return records
     return records.filter(({ payment, transaction, transactionType }) => (
-      `${payment.reference} ${transaction.number} ${transaction.customer?.name || ''} ${transaction.customer?.phone || ''} ${transactionType} ${payment.method} ${payment.status}`
+      `${payment.reference} ${transaction.code || ''} ${transaction.number} ${transaction.customer?.name || ''} ${transaction.customer?.phone || ''} ${transactionType} ${payment.method} ${payment.status}`
         .toLowerCase().includes(search)
     ))
   }, [query, records])
@@ -102,7 +103,7 @@ export default function AdminPaymentHistoryPage() {
           <tbody>{visibleRecords.map(({ payment, transaction, transactionType }) => <tr key={`${transactionType}-${transaction.number}-${payment.id}`} className="border-t border-slate-100 text-xs text-slate-600">
             <td className="whitespace-nowrap px-4 py-3">{dateTime(payment.paid_at || payment.created_at)}</td>
             <td className="px-4 font-semibold text-navy">{payment.reference}</td>
-            <td className="px-4"><span className="block font-semibold text-navy">{transaction.number}</span><span className="text-[10px] text-slate-500">{transactionType}</span></td>
+            <td className="px-4"><span className="block font-semibold text-navy">{transaction.code || transaction.number}</span>{transaction.code && <span className="block text-[10px] text-slate-500">No. transaksi: {transaction.number}</span>}<span className="text-[10px] text-slate-500">{transactionType}</span></td>
             <td className="px-4">{transaction.customer?.name || '—'}</td>
             <td className="px-4">{methodLabels[payment.method] || payment.method}</td>
             <td className="whitespace-nowrap px-4 font-semibold text-navy">{money(payment.amount)}</td>

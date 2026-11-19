@@ -6,6 +6,7 @@ import { useAdminDemoStore } from '../../components/useAdminDemoStore'
 import { useAdminAuth } from '../../components/admin-auth-context'
 import { adminApiRequest, adminApiUpload, readAdminToken } from '../../lib/admin-api'
 import { money, rentalDays, readLocal } from '../../lib/customer-shop'
+import { isShoeProduct } from '../../lib/shoe-constants'
 
 const activeStatuses = new Set(['Menunggu konfirmasi', 'Dikonfirmasi', 'Diproses'])
 const purchaseStatuses = ['Menunggu konfirmasi', 'Dikonfirmasi', 'Diproses', 'Selesai', 'Dibatalkan']
@@ -32,18 +33,14 @@ function normalizeProduct(product) {
     saleStock: Number(product.sale_stock),
     rentalStock: Number(product.rental_stock),
     photos: product.photos || [],
-    variants: (product.variants || []).map((variant) => ({
-      ...variant,
-      designName: variant.design_name || 'Default',
-      salePrice: variant.sale_price === null ? '' : Number(variant.sale_price),
-      rentPricePerDay: variant.rent_price_per_day === null ? '' : Number(variant.rent_price_per_day),
-      saleStock: Number(variant.sale_stock),
-      rentalStock: Number(variant.rental_stock),
-      options: variant.options || {},
-      capacity: variant.capacity || variant.options?.capacity || '',
-      photos: variant.photos || [],
-      image: variant.image_url || '',
-      imageAlt: variant.image_alt || variant.name,
+    shoeInventory: (product.shoe_inventories || []).map((inventory) => ({
+      ...inventory,
+      designName: inventory.design_name || 'Default',
+      saleStock: Number(inventory.sale_stock),
+      rentalStock: Number(inventory.rental_stock),
+      photos: inventory.photos || [],
+      image: inventory.image_url || '',
+      imageAlt: inventory.image_alt || inventory.name,
     })),
     image: product.image_url || '',
     imageAlt: product.image_alt || product.name,
@@ -54,6 +51,7 @@ function normalizeOrder(order) {
   return {
     ...order,
     id: order.order_number,
+    paymentCode: order.payment_code,
     createdAt: order.created_at,
     customer: {
       ...order.customer,
@@ -208,7 +206,7 @@ export default function AdminSectionPage({ section }) {
   const visibleRecords = useMemo(() => {
     if (section.key === 'products') return viewData.products.filter((product) => `${product.name} ${product.category}`.toLowerCase().includes(normalizedQuery) && (filter === 'Semua kategori' || product.category === filter))
     if (section.key === 'categories') return viewData.categories.filter((category) => `${category.name} ${category.description}`.toLowerCase().includes(normalizedQuery))
-    if (section.key === 'orders') return serverOrders.filter((order) => `${order.id} ${order.customer.name} ${order.customer.email}`.toLowerCase().includes(normalizedQuery) && (filter === 'Semua status' || order.status === filter))
+    if (section.key === 'orders') return serverOrders.filter((order) => `${order.paymentCode || ''} ${order.id} ${order.customer.name} ${order.customer.email}`.toLowerCase().includes(normalizedQuery) && (filter === 'Semua status' || order.status === filter))
     if (section.key === 'rentals') return rentals.filter(({ order, item }) => `${order.id} ${order.customer.name} ${order.customer.villageAddress || ''} ${item.name}`.toLowerCase().includes(normalizedQuery) && (filter === 'Semua status' || order.status === filter))
     if (section.key === 'customers') return viewData.customers.filter((customer) => `${customer.name} ${customer.email} ${customer.phone}`.toLowerCase().includes(normalizedQuery))
     return data.orders.filter((order) => `${order.id} ${order.customer.name} ${order.customer.email}`.toLowerCase().includes(normalizedQuery) && (reportKind === 'Semua transaksi' || order.items.some((item) => reportKind === 'Pembelian' ? item.kind === 'purchase' : item.kind === 'rental')))
@@ -235,66 +233,51 @@ export default function AdminSectionPage({ section }) {
                 description: values.description.trim(),
                 sale_price: Number(values.salePrice),
                 rent_price_per_day: Number(values.rentPricePerDay),
-                sale_stock: Number(values.saleStock),
-                rental_stock: Number(values.rentalStock),
+                sale_stock: isShoeProduct({ name, category: values.category }) ? 0 : Number(values.saleStock),
+                rental_stock: isShoeProduct({ name, category: values.category }) ? 0 : Number(values.rentalStock),
                 featured: dialog?.record?.featured ?? false,
               },
             },
           })
-          const variantRows = values.variants || []
-          for (const [index, variant] of variantRows.entries()) {
-            let options
-            try {
-              options = JSON.parse(variant.optionsJson || '{}')
-            } catch {
-              return `Atribut tambahan pada varian ${index + 1} harus berupa JSON yang valid.`
+          const inventoryRows = isShoeProduct({ name, category: values.category }) ? values.shoeInventory || [] : []
+          for (const inventory of inventoryRows) {
+            const inventoryPayload = {
+              name: inventory.name.trim(),
+              design_name: inventory.designName.trim(),
+              color: inventory.color?.trim() || '',
+              size: inventory.size?.trim() || '',
+              sale_stock: Number(inventory.saleStock),
+              rental_stock: Number(inventory.rentalStock),
+              active: inventory.active !== false,
             }
-            if (!options || Array.isArray(options) || typeof options !== 'object') {
-              return `Atribut tambahan pada varian ${index + 1} harus berupa objek JSON.`
-            }
-            if (variant.capacity?.trim()) options.capacity = variant.capacity.trim()
-            else delete options.capacity
-            const variantPayload = {
-              name: variant.name.trim(),
-              design_name: variant.designName.trim(),
-              color: variant.color?.trim() || '',
-              size: variant.size?.trim() || '',
-              capacity: variant.capacity?.trim() || '',
-              options,
-              sale_price: variant.salePrice === '' || variant.salePrice === null ? null : Number(variant.salePrice),
-              rent_price_per_day: variant.rentPricePerDay === '' || variant.rentPricePerDay === null ? null : Number(variant.rentPricePerDay),
-              sale_stock: Number(variant.saleStock),
-              rental_stock: Number(variant.rentalStock),
-              active: variant.active !== false,
-            }
-            const variantPath = `/products/${savedProduct.slug}/variants`
-            const savedVariant = await adminApiRequest(
-              variant.id ? `${variantPath}/${variant.id}` : variantPath,
+            const inventoryPath = `/products/${savedProduct.slug}/shoe_inventories`
+            const savedInventory = await adminApiRequest(
+              inventory.id ? `${inventoryPath}/${inventory.id}` : inventoryPath,
               {
-                method: variant.id ? 'PATCH' : 'POST',
+                method: inventory.id ? 'PATCH' : 'POST',
                 token,
-                body: { variant: variantPayload },
+                body: { shoe_inventory: inventoryPayload },
               },
             )
-            const remainingPhotos = (variant.photos || []).filter((photo) => !(variant.deletedPhotoIds || []).includes(photo.id))
-            for (const [photoIndex, file] of (variant.photoFiles || []).entries()) {
-              await adminApiUpload(`${variantPath}/${savedVariant.id}/photos`, {
+            const remainingPhotos = (inventory.photos || []).filter((photo) => !(inventory.deletedPhotoIds || []).includes(photo.id))
+            for (const [photoIndex, file] of (inventory.photoFiles || []).entries()) {
+              await adminApiUpload(`${inventoryPath}/${savedInventory.id}/photos`, {
                 file,
                 token,
                 body: { is_primary: remainingPhotos.length === 0 && photoIndex === 0 },
               })
             }
-            for (const photoId of variant.deletedPhotoIds || []) {
-              await adminApiRequest(`${variantPath}/${savedVariant.id}/photos/${photoId}`, {
+            for (const photoId of inventory.deletedPhotoIds || []) {
+              await adminApiRequest(`${inventoryPath}/${savedInventory.id}/photos/${photoId}`, {
                 method: 'DELETE',
                 token,
               })
             }
           }
-          const retainedVariantIds = new Set(variantRows.map((variant) => variant.id).filter(Boolean))
-          for (const variant of dialog?.record?.variants || []) {
-            if (!retainedVariantIds.has(variant.id)) {
-              await adminApiRequest(`/products/${savedProduct.slug}/variants/${variant.id}`, {
+          const retainedInventoryIds = new Set(inventoryRows.map((inventory) => inventory.id).filter(Boolean))
+          for (const inventory of dialog?.record?.shoeInventory || []) {
+            if (!retainedInventoryIds.has(inventory.id)) {
+              await adminApiRequest(`/products/${savedProduct.slug}/shoe_inventories/${inventory.id}`, {
                 method: 'DELETE',
                 token,
               })
@@ -613,7 +596,7 @@ export default function AdminSectionPage({ section }) {
               return <tr key={isRental ? `${order.id}-${item.id}` : record.id} className="border-t border-slate-100 text-xs text-slate-600">
                 {section.key === 'products' && <><td className="h-14 px-4 font-semibold text-navy">{record.name}</td><td className="px-4">{record.category}</td><td className="px-4">{money(record.salePrice)}</td><td className="px-4">{money(record.rentPricePerDay)}</td><td className="px-4">{record.saleStock} / {record.rentalStock}</td><td className="px-4">{renderActions(record)}</td></>}
                 {section.key === 'categories' && <><td className="h-14 px-4 font-semibold text-navy">{record.name}</td><td className="max-w-sm px-4">{record.description}</td><td className="px-4">{viewData.products.filter((product) => product.category_id === record.id).length}</td><td className="px-4">{renderActions(record)}</td></>}
-                {(section.key === 'orders' || isReport) && <><td className="h-14 px-4 font-semibold text-navy">{record.id}</td><td className="whitespace-nowrap px-4">{isoDate(record.createdAt)}</td><td className="px-4">{record.customer.name}</td><td className="px-4">{orderTypes(record)}</td><td className="whitespace-nowrap px-4 font-semibold text-navy">{money(record.total)}</td><td className="px-4"><span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-[10px] font-semibold ${statusClass(record.status)}`}>{record.status}</span></td>{section.key === 'orders' && <td className="max-w-64 px-4"><span className="whitespace-nowrap font-semibold text-navy">{paymentStatusLabels[record.payment_status] || 'Belum dibayar'}</span><span className="mt-1 block whitespace-nowrap text-[10px] text-slate-500">{money(record.amount_paid || 0)} / {money(record.total)}</span>{(record.payments || []).map((payment) => <span key={payment.id} className="mt-1 block whitespace-nowrap text-[10px] text-slate-500">{payment.reference} · {payment.method === 'cash' ? 'Tunai' : payment.method} · {isoDate(payment.paid_at)}</span>)}</td>}{section.key === 'orders' && !isOrderSection && <td className="px-4">{renderActions(record)}</td>}</>}
+                {(section.key === 'orders' || isReport) && <><td className="h-14 px-4"><span className="block font-semibold text-navy">{record.paymentCode || record.id}</span>{record.paymentCode && <span className="text-[10px] text-slate-500">No. transaksi: {record.id}</span>}</td><td className="whitespace-nowrap px-4">{isoDate(record.createdAt)}</td><td className="px-4">{record.customer.name}</td><td className="px-4">{orderTypes(record)}</td><td className="whitespace-nowrap px-4 font-semibold text-navy">{money(record.total)}</td><td className="px-4"><span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-[10px] font-semibold ${statusClass(record.status)}`}>{record.status}</span></td>{section.key === 'orders' && <td className="max-w-64 px-4"><span className="whitespace-nowrap font-semibold text-navy">{paymentStatusLabels[record.payment_status] || 'Belum dibayar'}</span><span className="mt-1 block whitespace-nowrap text-[10px] text-slate-500">{money(record.amount_paid || 0)} / {money(record.total)}</span>{(record.payments || []).map((payment) => <span key={payment.id} className="mt-1 block whitespace-nowrap text-[10px] text-slate-500">{payment.reference} · {payment.method === 'cash' ? 'Tunai' : payment.method} · {isoDate(payment.paid_at)}</span>)}</td>}{section.key === 'orders' && !isOrderSection && <td className="px-4">{renderActions(record)}</td>}</>}
                 {isRental && <><td className="h-14 px-4 font-semibold text-navy">{order.id}</td><td className="px-4">{order.customer.name}</td><td className="max-w-56 px-4">{order.customer.villageAddress || '—'}</td><td className="px-4">{item.name}</td><td className="whitespace-nowrap px-4">{isoDate(`${item.startDate}T00:00:00`)}–{isoDate(`${item.returnDate}T00:00:00`)}</td><td className="px-4">{item.quantity}</td><td className="px-4"><span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-[10px] font-semibold ${statusClass(order.status)}`}>{order.status}</span></td><td className="px-4">{order.source === 'customer-website' ? <span className="text-[11px] text-slate-400">Website</span> : renderActions(record)}</td></>}
                 {section.key === 'customers' && <><td className="h-14 px-4 font-semibold text-navy">{record.name}</td><td className="px-4">{record.email}</td><td className="whitespace-nowrap px-4">{record.phone}</td><td className="whitespace-nowrap px-4">{isoDate(record.createdAt)}</td><td className="px-4">{customerOrders ?? '—'}</td><td className="px-4">{renderActions(record)}</td></>}
               </tr>

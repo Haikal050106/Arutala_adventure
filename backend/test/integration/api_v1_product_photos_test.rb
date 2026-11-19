@@ -205,8 +205,17 @@ class ApiV1ProductPhotosTest < ActionDispatch::IntegrationTest
     assert_nil response.parsed_body.fetch("photos").first["public_id"]
   end
 
-  test "variant photos use Cloudinary storage and synchronize the selected variant image" do
-    variant = @product.product_variants.create!(
+  test "shoe inventory photos use Cloudinary storage and synchronize the selected inventory image" do
+    shoe = Product.create!(
+      category: @category,
+      name: "Sepatu Foto Uji #{SecureRandom.hex(4)}",
+      description: "Sepatu untuk foto inventori.",
+      sale_price: 100_000,
+      rent_price_per_day: 10_000,
+      sale_stock: 0,
+      rental_stock: 0
+    )
+    inventory = shoe.shoe_inventories.create!(
       name: "High Cut",
       design_name: "Desain A",
       color: "Hitam",
@@ -214,36 +223,36 @@ class ApiV1ProductPhotosTest < ActionDispatch::IntegrationTest
       sale_stock: 1
     )
     upload = {
-      secure_url: "https://res.cloudinary.com/demo/image/upload/variant.jpg",
-      public_id: "arutala-adventure/produk/variant"
+      secure_url: "https://res.cloudinary.com/demo/image/upload/shoe-inventory.jpg",
+      public_id: "arutala-adventure/produk/shoe-inventory"
     }
 
     with_storage_stub(:upload!, upload) do
-      post "/api/v1/products/#{@product.slug}/variants/#{variant.id}/photos",
+      post "/api/v1/products/#{shoe.slug}/shoe_inventories/#{inventory.id}/photos",
         params: { file: uploaded_photo, is_primary: true }
     end
     assert_response :created
-    photo = variant.product_photos.find_by!(public_id: upload.fetch(:public_id))
+    photo = inventory.product_photos.find_by!(public_id: upload.fetch(:public_id))
     assert_predicate photo, :is_primary?
     assert_nil photo.product_id
-    assert_equal upload.fetch(:secure_url), variant.reload.image_url
-    assert_nil @product.reload.image_url
+    assert_equal upload.fetch(:secure_url), inventory.reload.image_url
+    assert_nil shoe.reload.image_url
 
-    get "/api/v1/products/#{@product.slug}"
+    get "/api/v1/products/#{shoe.slug}", headers: { "Authorization" => "Bearer #{@default_test_token}" }
     assert_response :success
-    serialized_variant = response.parsed_body.fetch("variants").find { |item| item.fetch("id") == variant.id }
-    assert_equal upload.fetch(:secure_url), serialized_variant.fetch("image_url")
-    assert_nil serialized_variant.fetch("photos").first["public_id"]
+    serialized_inventory = response.parsed_body.fetch("shoe_inventories").find { |item| item.fetch("id") == inventory.id }
+    assert_equal upload.fetch(:secure_url), serialized_inventory.fetch("image_url")
+    assert_nil serialized_inventory.fetch("photos").first["public_id"]
 
     second_upload = {
-      secure_url: "https://res.cloudinary.com/demo/image/upload/variant-detail.jpg",
-      public_id: "arutala-adventure/produk/variant-detail"
+      secure_url: "https://res.cloudinary.com/demo/image/upload/shoe-inventory-detail.jpg",
+      public_id: "arutala-adventure/produk/shoe-inventory-detail"
     }
     with_storage_stub(:upload!, second_upload) do
-      post "/api/v1/products/#{@product.slug}/variants/#{variant.id}/photos", params: { file: uploaded_photo }
+      post "/api/v1/products/#{shoe.slug}/shoe_inventories/#{inventory.id}/photos", params: { file: uploaded_photo }
     end
     assert_response :created
-    assert_equal [ 1, 2 ], variant.product_photos.order(:position).pluck(:position)
+    assert_equal [ 1, 2 ], inventory.product_photos.order(:position).pluck(:position)
   end
 
   private

@@ -22,9 +22,11 @@ shoe = Product.find_by(name: "Sepatu Hiking") || Product.create!(
   rental_stock: 0
 )
 [ "Trail Run", "High Cut", "Low Cut" ].each do |model_name|
-  shoe.product_variants.find_or_create_by!(name: model_name, color: "", size: "") do |variant|
-    variant.sale_stock = 0
-    variant.rental_stock = 0
+  Product::SHOE_SIZES.each do |size|
+    shoe.shoe_inventories.find_or_create_by!(name: model_name, color: "", size: size) do |inventory|
+      inventory.sale_stock = 0
+      inventory.rental_stock = 0
+    end
   end
 end
 
@@ -37,10 +39,4 @@ hydropack = Product.find_by(name: "Hydropack") || Product.create!(
   sale_stock: 0,
   rental_stock: 0
 )
-{ "Model A" => 15_000, "Model B" => 20_000 }.each do |model_name, price|
-  hydropack.product_variants.find_or_create_by!(name: model_name, color: "", size: "") do |variant|
-    variant.sale_price = price
-    variant.sale_stock = 0
-    variant.rental_stock = 0
-  end
-end
+hydropack.update!(sale_price: 0, rent_price_per_day: 0, sale_stock: 0, rental_stock: 0)

@@ -7,7 +7,7 @@ module Api
 
       def create
         if @photo_owner.product_photos.count >= ProductPhotoStorage::MAX_PHOTOS
-          return render_error("photo_limit_reached", "Maksimal #{ProductPhotoStorage::MAX_PHOTOS} foto untuk satu produk atau desain.", :unprocessable_entity)
+          return render_error("photo_limit_reached", "Maksimal #{ProductPhotoStorage::MAX_PHOTOS} foto untuk satu produk atau inventori sepatu.", :unprocessable_entity)
         end
 
         storage_result = ProductPhotoStorage.upload!(params[:file])
@@ -24,7 +24,7 @@ module Api
             position: @photo_owner.product_photos.maximum(:position).to_i + 1,
             is_primary: make_primary,
             product: @photo_owner.is_a?(Product) ? @photo_owner : nil,
-            product_variant: @photo_owner.is_a?(ProductVariant) ? @photo_owner : nil
+            shoe_inventory: @photo_owner.is_a?(ShoeInventory) ? @photo_owner : nil
           )
           sync_owner_image!
         end
@@ -100,8 +100,11 @@ module Api
 
       def set_photo_owner
         @product = Product.find_by!(slug: params[:product_id])
-        @photo_owner = if params[:variant_id].present?
-          @product.product_variants.find(params[:variant_id])
+        shoe_inventory_id = params[:shoe_inventory_id]
+        @photo_owner = if shoe_inventory_id.present?
+          raise ActiveRecord::RecordNotFound unless @product.shoe?
+
+          @product.shoe_inventories.find(shoe_inventory_id)
         else
           @product
         end

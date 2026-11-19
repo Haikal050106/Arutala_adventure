@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ImagePlus, Star, Trash2, Upload, X } from 'lucide-react'
+import { isShoeProduct, SHOE_SIZES } from '../lib/shoe-constants'
 
 const fieldClass = 'mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-navy outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/25'
 const labelClass = 'block text-xs font-semibold text-navy'
@@ -47,16 +48,16 @@ export default function AdminRecordDialog({ section, record, products, categorie
       photoReplacements: {},
       deletedPhotoIds: [],
       primaryPhotoKey: String(record.photos?.find((photo) => photo.is_primary)?.id ?? record.photos?.[0]?.id ?? ''),
-      variants: (record.variants || []).map((variant) => ({
-        ...variant,
-        optionsJson: JSON.stringify(variant.options || {}, null, 2),
+      shoeInventory: (record.shoeInventory || []).map((inventory) => ({
+        ...inventory,
+        optionsJson: JSON.stringify(inventory.options || {}, null, 2),
         photoFiles: [],
         deletedPhotoIds: [],
       })),
     }
     if (section === 'orders') return { quantity: '1', status: 'Menunggu konfirmasi', paymentStatus: 'Belum dibayar' }
     if (section === 'rentals') return { quantity: '1', status: 'Menunggu konfirmasi' }
-    if (section === 'products') return { newPhotos: [], photoReplacements: {}, deletedPhotoIds: [], primaryPhotoKey: '', variants: [] }
+    if (section === 'products') return { newPhotos: [], photoReplacements: {}, deletedPhotoIds: [], primaryPhotoKey: '', shoeInventory: [] }
     return {}
   })
   const [error, setError] = useState('')
@@ -114,12 +115,17 @@ export default function AdminRecordDialog({ section, record, products, categorie
     setValues((current) => ({ ...current, newPhotos: [...(current.newPhotos || []), ...incoming] }))
   }
   const setPrimaryPhoto = (key) => set('primaryPhotoKey', key)
-  const setVariant = (index, key, value) => setValues((current) => ({
+  const setShoeInventory = (index, key, value) => setValues((current) => ({
     ...current,
-    variants: current.variants.map((variant, variantIndex) => variantIndex === index
-      ? { ...variant, [key]: value }
-      : variant),
+    shoeInventory: current.shoeInventory.map((inventory, inventoryIndex) => inventoryIndex === index
+      ? { ...inventory, [key]: value }
+      : inventory),
   }))
+  const shoeProduct = isShoeProduct({
+    name: values.name,
+    category: values.category,
+    is_shoe: record?.is_shoe,
+  })
 
   return <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-navy/40 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
     <section role="dialog" aria-modal="true" aria-labelledby="admin-record-title" className="my-auto max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl">
@@ -135,58 +141,54 @@ export default function AdminRecordDialog({ section, record, products, categorie
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Harga beli (Rp)"><TextInput required type="number" min="0" step="1000" value={values.salePrice} onChange={(value) => set('salePrice', value)} /></Field>
             <Field label="Harga sewa per hari (Rp)"><TextInput required type="number" min="0" step="1000" value={values.rentPricePerDay} onChange={(value) => set('rentPricePerDay', value)} /></Field>
-            <Field label="Stok jual"><TextInput required type="number" min="0" step="1" value={values.saleStock} onChange={(value) => set('saleStock', value)} /></Field>
-            <Field label="Stok sewa"><TextInput required type="number" min="0" step="1" value={values.rentalStock} onChange={(value) => set('rentalStock', value)} /></Field>
+            {!shoeProduct && <Field label="Stok jual"><TextInput required type="number" min="0" step="1" value={values.saleStock} onChange={(value) => set('saleStock', value)} /></Field>}
+            {!shoeProduct && <Field label="Stok sewa"><TextInput required type="number" min="0" step="1" value={values.rentalStock} onChange={(value) => set('rentalStock', value)} /></Field>}
           </div>
-          <section className="space-y-3 rounded-xl border border-slate-200 p-4" aria-labelledby="product-variants-title">
+          {shoeProduct && <section className="space-y-3 rounded-xl border border-slate-200 p-4" aria-labelledby="shoe-inventory-title">
             <div className="flex items-start justify-between gap-3">
-              <div><h3 id="product-variants-title" className="m-0 text-sm font-semibold text-navy">Model, desain, dan stok</h3><p className="mb-0 mt-1 text-[11px] text-slate-500">Setiap baris mengatur stok independen untuk satu model, desain, warna, dan ukuran/kapasitas.</p></div>
-              <button type="button" onClick={() => setValues((current) => ({ ...current, variants: [...current.variants, { name: '', designName: '', color: '', size: '', capacity: '', salePrice: '', rentPricePerDay: '', saleStock: '0', rentalStock: '0', optionsJson: '{}', photos: [], photoFiles: [], deletedPhotoIds: [], active: true }] }))} className="shrink-0 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-navy hover:border-primary">Tambah kombinasi</button>
+              <div><h3 id="shoe-inventory-title" className="m-0 text-sm font-semibold text-navy">Inventori sepatu berdasarkan ukuran</h3><p className="mb-0 mt-1 text-[11px] text-slate-500">Admin mengelola model fisik dan stok tiap ukuran. Pelanggan hanya memilih ukuran.</p></div>
+              <button type="button" onClick={() => setValues((current) => ({ ...current, shoeInventory: [...current.shoeInventory, { name: '', designName: '', color: '', size: '38', saleStock: '0', rentalStock: '0', photos: [], photoFiles: [], deletedPhotoIds: [], active: true }] }))} className="shrink-0 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-navy hover:border-primary">Tambah stok sepatu</button>
             </div>
-            {(values.variants || []).map((variant, index) => <fieldset key={variant.id || `new-${index}`} className="space-y-3 rounded-lg border border-slate-200 p-3">
-              <legend className="px-1 text-xs font-semibold text-navy">{[variant.name, variant.designName].filter(Boolean).join(' · ') || `Varian ${index + 1}`}</legend>
+            {(values.shoeInventory || []).map((inventory, index) => <fieldset key={inventory.id || `new-${index}`} className="space-y-3 rounded-lg border border-slate-200 p-3">
+              <legend className="px-1 text-xs font-semibold text-navy">{[inventory.name, inventory.designName, inventory.size].filter(Boolean).join(' · ') || `Stok sepatu ${index + 1}`}</legend>
               <div className="grid gap-3 sm:grid-cols-3">
-                <Field label="Model"><TextInput required maxLength={100} value={variant.name} onChange={(value) => setVariant(index, 'name', value)} placeholder="Trail Run / Model A" /></Field>
-                <Field label="Desain fisik"><TextInput required maxLength={100} value={variant.designName} onChange={(value) => setVariant(index, 'designName', value)} placeholder="Desain A" /></Field>
-                <Field label="Warna"><TextInput maxLength={60} value={variant.color} onChange={(value) => setVariant(index, 'color', value)} /></Field>
-                <Field label="Ukuran"><TextInput maxLength={40} value={variant.size} onChange={(value) => setVariant(index, 'size', value)} placeholder="mis. 40 atau S" /></Field>
-                <Field label="Kapasitas Hydropack"><TextInput maxLength={40} value={variant.capacity ?? ''} onChange={(value) => setVariant(index, 'capacity', value)} placeholder="mis. 2 L" /></Field>
-                <Field label="Harga beli (kosong = harga produk)"><TextInput type="number" min="0" step="1000" value={variant.salePrice ?? ''} onChange={(value) => setVariant(index, 'salePrice', value)} /></Field>
-                <Field label="Sewa per hari (kosong = harga produk)"><TextInput type="number" min="0" step="1000" value={variant.rentPricePerDay ?? ''} onChange={(value) => setVariant(index, 'rentPricePerDay', value)} /></Field>
-                <Field label="Stok jual"><TextInput required type="number" min="0" step="1" value={variant.saleStock ?? '0'} onChange={(value) => setVariant(index, 'saleStock', value)} /></Field>
-                <Field label="Stok sewa"><TextInput required type="number" min="0" step="1" value={variant.rentalStock ?? '0'} onChange={(value) => setVariant(index, 'rentalStock', value)} /></Field>
-                <Field label="Atribut tambahan (JSON)"><TextInput value={variant.optionsJson ?? '{}'} onChange={(value) => setVariant(index, 'optionsJson', value)} /></Field>
+                <Field label="Model fisik"><TextInput required maxLength={100} value={inventory.name} onChange={(value) => setShoeInventory(index, 'name', value)} placeholder="Model A" /></Field>
+                <Field label="Desain"><TextInput required maxLength={100} value={inventory.designName} onChange={(value) => setShoeInventory(index, 'designName', value)} placeholder="Desain A" /></Field>
+                <Field label="Warna"><TextInput maxLength={60} value={inventory.color} onChange={(value) => setShoeInventory(index, 'color', value)} /></Field>
+                <Field label="Ukuran"><SelectInput required value={inventory.size} onChange={(value) => setShoeInventory(index, 'size', value)}>{SHOE_SIZES.map((size) => <option key={size} value={size}>{size}</option>)}</SelectInput></Field>
+                <Field label="Stok pembelian"><TextInput required type="number" min="0" step="1" value={inventory.saleStock ?? '0'} onChange={(value) => setShoeInventory(index, 'saleStock', value)} /></Field>
+                <Field label="Stok penyewaan"><TextInput required type="number" min="0" step="1" value={inventory.rentalStock ?? '0'} onChange={(value) => setShoeInventory(index, 'rentalStock', value)} /></Field>
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-navy hover:border-primary"><ImagePlus size={14} />Tambah foto desain<input type="file" accept="image/jpeg,image/png,image/webp" multiple className="sr-only" onChange={(event) => {
                   const files = Array.from(event.target.files || [])
                   const invalid = files.map(validatePhoto).find(Boolean)
-                  const activeCount = (variant.photos || []).filter((photo) => !(variant.deletedPhotoIds || []).includes(photo.id)).length + (variant.photoFiles || []).length
+                  const activeCount = (inventory.photos || []).filter((photo) => !(inventory.deletedPhotoIds || []).includes(photo.id)).length + (inventory.photoFiles || []).length
                   setPhotoError(invalid)
                   if (files.length && !invalid && activeCount + files.length <= PHOTO_LIMIT) {
-                    setVariant(index, 'photoFiles', [...(variant.photoFiles || []), ...files])
+                    setShoeInventory(index, 'photoFiles', [...(inventory.photoFiles || []), ...files])
                   } else if (files.length && !invalid) {
                     setPhotoError(`Maksimal ${PHOTO_LIMIT} foto untuk satu desain.`)
                   }
                   event.target.value = ''
                 }} /></label>
-                <label className="flex items-center gap-2 text-xs text-navy"><input type="checkbox" checked={variant.active !== false} onChange={(event) => setVariant(index, 'active', event.target.checked)} />Aktif</label>
-                <button type="button" onClick={() => setValues((current) => ({ ...current, variants: current.variants.filter((_, variantIndex) => variantIndex !== index) }))} className="ml-auto inline-flex items-center gap-1 rounded-lg px-2 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"><Trash2 size={14} />Hapus</button>
+                <label className="flex items-center gap-2 text-xs text-navy"><input type="checkbox" checked={inventory.active !== false} onChange={(event) => setShoeInventory(index, 'active', event.target.checked)} />Aktif</label>
+                <button type="button" onClick={() => setValues((current) => ({ ...current, shoeInventory: current.shoeInventory.filter((_, inventoryIndex) => inventoryIndex !== index) }))} className="ml-auto inline-flex items-center gap-1 rounded-lg px-2 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"><Trash2 size={14} />Hapus</button>
               </div>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {(variant.photos || []).filter((photo) => !(variant.deletedPhotoIds || []).includes(photo.id)).map((photo) => <div key={photo.id} className="relative aspect-square overflow-hidden rounded-lg border border-slate-200">
-                  <PhotoPreview src={photo.secure_url} alt={photo.alt_text || variant.designName} />
-                  <button type="button" onClick={() => setVariant(index, 'deletedPhotoIds', [...(variant.deletedPhotoIds || []), photo.id])} aria-label={`Hapus foto ${photo.position} desain ${variant.designName}`} className="absolute right-1 top-1 grid size-7 place-items-center rounded-full bg-white/90 text-red-600 shadow"><Trash2 size={14} /></button>
+                {(inventory.photos || []).filter((photo) => !(inventory.deletedPhotoIds || []).includes(photo.id)).map((photo) => <div key={photo.id} className="relative aspect-square overflow-hidden rounded-lg border border-slate-200">
+                  <PhotoPreview src={photo.secure_url} alt={photo.alt_text || inventory.designName} />
+                  <button type="button" onClick={() => setShoeInventory(index, 'deletedPhotoIds', [...(inventory.deletedPhotoIds || []), photo.id])} aria-label={`Hapus foto ${photo.position} sepatu ${inventory.designName}`} className="absolute right-1 top-1 grid size-7 place-items-center rounded-full bg-white/90 text-red-600 shadow"><Trash2 size={14} /></button>
                   {photo.is_primary && <span className="absolute bottom-1 left-1 rounded bg-white/90 px-1.5 py-0.5 text-[9px] font-semibold text-navy">Utama</span>}
                 </div>)}
-                {(variant.photoFiles || []).map((file, photoIndex) => <div key={`${file.name}-${file.lastModified}-${photoIndex}`} className="relative aspect-square overflow-hidden rounded-lg border border-dashed border-slate-300">
+                {(inventory.photoFiles || []).map((file, photoIndex) => <div key={`${file.name}-${file.lastModified}-${photoIndex}`} className="relative aspect-square overflow-hidden rounded-lg border border-dashed border-slate-300">
                   <PhotoPreview file={file} alt={`Pratinjau ${file.name}`} />
-                  <button type="button" onClick={() => setVariant(index, 'photoFiles', variant.photoFiles.filter((_, fileIndex) => fileIndex !== photoIndex))} aria-label={`Hapus foto baru ${file.name}`} className="absolute right-1 top-1 grid size-7 place-items-center rounded-full bg-white/90 text-red-600 shadow"><Trash2 size={14} /></button>
+                  <button type="button" onClick={() => setShoeInventory(index, 'photoFiles', inventory.photoFiles.filter((_, fileIndex) => fileIndex !== photoIndex))} aria-label={`Hapus foto baru ${file.name}`} className="absolute right-1 top-1 grid size-7 place-items-center rounded-full bg-white/90 text-red-600 shadow"><Trash2 size={14} /></button>
                 </div>)}
               </div>
             </fieldset>)}
             {photoError && <p role="alert" className="mb-0 text-xs text-red-700">{photoError}</p>}
-          </section>
+          </section>}
           <section aria-labelledby="product-photos-title" className="space-y-3 rounded-xl border border-slate-200 p-4">
             <div className="flex items-center justify-between gap-3">
               <div><h3 id="product-photos-title" className="m-0 text-sm font-semibold text-navy">Foto produk</h3><p className="mb-0 mt-1 text-[11px] text-slate-500">JPEG, PNG, WebP · maksimal 10 MB per foto dan 10 foto per produk.</p></div>

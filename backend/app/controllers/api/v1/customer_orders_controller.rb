@@ -37,7 +37,7 @@ module Api
           return render_error("invalid_idempotency_key", "Header Idempotency-Key wajib diisi dengan format yang valid.", :unprocessable_entity)
         end
 
-        attributes = params.require(:order).permit(:notes, items: %i[product_id variant_id quantity])
+        attributes = params.require(:order).permit(:notes, items: %i[product_id size quantity])
         order, created = Order.create_customer_purchase!(
           customer: current_user.customer,
           notes: attributes[:notes],
@@ -71,16 +71,15 @@ module Api
 
       def serialize_order(order)
         serialized = order.as_json(
-          only: %i[id order_number customer_id status notes total_amount created_at updated_at],
+          only: %i[id order_number payment_code customer_id status notes total_amount created_at updated_at],
           include: {
             customer: { only: %i[id name email phone village_name] },
             order_items: {
               only: %i[
-                id product_id product_variant_id variant_name variant_design_name variant_color variant_size variant_options quantity unit_price subtotal
+                id product_id inventory_size quantity unit_price subtotal
               ],
               include: {
-                product: { only: %i[id slug name] },
-                product_variant: { only: %i[id name design_name color size capacity options] }
+                product: { only: %i[id slug name] }
               }
             },
             payments: { only: Payment::SERIALIZED_FIELDS }

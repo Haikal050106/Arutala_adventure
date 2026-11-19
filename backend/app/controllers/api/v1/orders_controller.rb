@@ -67,21 +67,21 @@ module Api
       end
 
       def order_params
-        params.require(:order).permit(:customer_id, :status, :notes,         items: %i[product_id variant_id quantity])
+        params.require(:order).permit(:customer_id, :status, :notes, items: %i[product_id shoe_inventory_id size quantity])
       end
 
       def serialize_order(order)
         serialized = order.as_json(
-          only: %i[id order_number customer_id status notes total_amount stock_deducted created_at updated_at],
+          only: %i[id order_number payment_code customer_id status notes total_amount stock_deducted created_at updated_at],
           include: {
             customer: { only: %i[id name email phone village_name] },
             order_items: {
               only: %i[
-                id product_id product_variant_id variant_name variant_design_name variant_color variant_size variant_options quantity unit_price subtotal
+                id product_id shoe_inventory_id inventory_model_name inventory_design_name inventory_color inventory_size inventory_attributes quantity unit_price subtotal
               ],
               include: {
                 product: { only: %i[id slug name] },
-                product_variant: { only: %i[id name design_name color size capacity options] }
+                shoe_inventory: { only: %i[id name design_name color size capacity options active] }
               }
             },
             payments: { only: Payment::SERIALIZED_FIELDS }

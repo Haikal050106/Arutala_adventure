@@ -19,6 +19,7 @@ function paymentDate(payment) {
 export function printPaymentReceipt(payment, transaction) {
   const printWindow = window.open('', '_blank')
   if (!printWindow) throw new Error('Jendela cetak diblokir browser. Izinkan pop-up lalu coba lagi.')
+  const logoUrl = new URL('/arutala-logo-transparent.png', window.location.origin).href
   const details = transaction.items.map((item) => `
     <tr>
       <td>${escapeHtml(item.name)}${item.detail ? `<small>${escapeHtml(item.detail)}</small>` : ''}</td>
@@ -34,15 +35,16 @@ export function printPaymentReceipt(payment, transaction) {
   const html = `<!doctype html><html lang="id"><head><meta charset="utf-8"><title>Struk ${escapeHtml(payment.reference)}</title>
     <style>
       *{box-sizing:border-box}body{font:14px Arial,sans-serif;color:#252525;margin:0;padding:32px}
-      main{max-width:620px;margin:0 auto}h1{font-size:22px;margin:0}p{margin:5px 0}
+      main{max-width:620px;margin:0 auto}.brand{display:flex;align-items:center;gap:12px}.brand img{width:64px;height:64px;object-fit:contain}h1{font-size:22px;margin:0}p{margin:5px 0}
       .muted{color:#64748b;font-size:12px}.block{border-top:1px solid #cbd5e1;margin-top:18px;padding-top:14px}
       .row{display:flex;justify-content:space-between;gap:12px;margin:7px 0}
       table{border-collapse:collapse;width:100%;margin-top:12px}th,td{text-align:left;padding:9px 5px;border-bottom:1px solid #e2e8f0}
       th:last-child,td:last-child{text-align:right}td small{display:block;color:#64748b;margin-top:4px}
       @media print{body{padding:0}main{max-width:none}}
     </style></head><body><main>
-      <h1>Arutala Adventure</h1><p class="muted">Struk pembayaran digital</p>
+      <header class="brand"><img src="${escapeHtml(logoUrl)}" alt="Logo Arutala Adventure"><div><h1>Arutala Adventure</h1><p class="muted">Struk pembayaran digital</p></div></header>
       <div class="block">
+        ${transaction.code ? `<div class="row"><span>Kode pembayaran</span><strong>${escapeHtml(transaction.code)}</strong></div>` : ''}
         <div class="row"><span>Nomor transaksi</span><strong>${escapeHtml(transaction.number)}</strong></div>
         <div class="row"><span>Jenis transaksi</span><span>${escapeHtml(transaction.type)}</span></div>
         <div class="row"><span>Pelanggan</span><span>${escapeHtml(transaction.customer?.name || '—')}</span></div>
@@ -66,6 +68,15 @@ export function printPaymentReceipt(payment, transaction) {
   printWindow.document.open()
   printWindow.document.write(html)
   printWindow.document.close()
-  printWindow.focus()
-  printWindow.print()
+  const logo = printWindow.document.querySelector('.brand img')
+  const print = () => {
+    printWindow.focus()
+    printWindow.print()
+  }
+  if (logo && !logo.complete) {
+    logo.addEventListener('load', print, { once: true })
+    logo.addEventListener('error', print, { once: true })
+  } else {
+    print()
+  }
 }

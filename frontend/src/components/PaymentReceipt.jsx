@@ -30,11 +30,13 @@ export default function PaymentReceipt({ payment, transaction, onClose }) {
   return <div className="fixed inset-0 z-[60] grid place-items-center overflow-y-auto bg-slate-950/50 p-4" role="presentation">
     <section role="dialog" aria-modal="true" aria-labelledby="payment-receipt-title" className="my-auto max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-xl bg-white p-5 shadow-xl">
       <div className="flex items-start justify-between gap-3">
-        <div><p className="m-0 text-[10px] font-bold uppercase tracking-wider text-primary">Arutala Adventure · Struk digital</p><h2 id="payment-receipt-title" className="mb-0 mt-1 text-lg font-bold text-navy">{transaction.number}</h2></div>
+        <div className="flex items-center gap-3"><img src="/arutala-logo-transparent.png" alt="Logo Arutala Adventure" className="size-12 object-contain" /><div><p className="m-0 text-[10px] font-bold uppercase tracking-wider text-primary">Arutala Adventure · Struk digital</p><h2 id="payment-receipt-title" className="mb-0 mt-1 text-lg font-bold text-navy">{transaction.code || transaction.number}</h2></div></div>
         <button type="button" onClick={onClose} aria-label="Tutup struk" className="grid size-9 place-items-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50"><X size={17} /></button>
       </div>
       <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 border-y border-slate-200 py-3 text-xs">
         <dt className="text-slate-500">Jenis transaksi</dt><dd className="m-0 text-right font-semibold text-navy">{transaction.type}</dd>
+        {transaction.code && <><dt className="text-slate-500">Kode pembayaran</dt><dd className="m-0 text-right font-semibold text-navy">{transaction.code}</dd></>}
+        <dt className="text-slate-500">Nomor transaksi</dt><dd className="m-0 text-right font-semibold text-navy">{transaction.number}</dd>
         <dt className="text-slate-500">Pelanggan</dt><dd className="m-0 text-right font-semibold text-navy">{transaction.customer?.name || '—'}</dd>
         <dt className="text-slate-500">Tanggal transaksi</dt><dd className="m-0 text-right text-navy">{transaction.createdAt ? new Date(transaction.createdAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}</dd>
       </dl>

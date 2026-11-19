@@ -168,13 +168,13 @@ export default function RentalPaymentPanel({ notify, qrisImage }) {
     {!qrisImage && <p className="m-4 mt-0 rounded-lg bg-[#FFF1EA] p-3 text-xs text-[#C54300]">Unggah barcode QRIS toko pada bagian pembayaran penjualan POS untuk mengaktifkan pembayaran QRIS penyewaan di perangkat ini.</p>}
     {cashDialog && <CashPaymentDialog
       title="Catat pembayaran sewa"
-      transactionNumber={cashDialog.rental.rental_number}
+      transactionNumber={cashDialog.rental.payment_code || cashDialog.rental.rental_number}
       amountDue={Number(cashDialog.rental.balance_due)}
       onClose={() => setCashDialog(null)}
       onSubmit={(received) => recordCashPayment(cashDialog.rental, received, cashDialog.keyName, cashDialog.idempotencyKey)}
     />}
     {qrisDialog && <StaticQrisDialog
-      transactionNumber={qrisDialog.rental.rental_number}
+      transactionNumber={qrisDialog.rental.payment_code || qrisDialog.rental.rental_number}
       amount={qrisDialog.payment.amount}
       qrImage={qrisImage}
       payment={qrisDialog.payment}

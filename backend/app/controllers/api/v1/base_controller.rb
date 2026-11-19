@@ -20,6 +20,12 @@ module Api
         render_error("unauthorized", "Autentikasi diperlukan atau sesi sudah kedaluwarsa.", :unauthorized)
       end
 
+      def optional_authenticate_request!
+        token = request.authorization.to_s.match(/\ABearer\s+(.+)\z/i)&.captures&.first
+        @current_auth_session = AuthSession.authenticate(token)
+        @current_user = current_auth_session&.user
+      end
+
       def require_admin!
         return if current_user&.role == "admin"
 

@@ -38,14 +38,14 @@ npm install
 npm run dev
 ```
 
-Vite runs at `http://localhost:5173`. The frontend defaults to the API at
-`http://localhost:3000/api/v1`; the backend CORS configuration allows the
-default Vite development and preview origins.
+Vite runs at `http://localhost:5173`. By default, frontend requests use the
+same-origin `/api/v1` path, which Vite proxies to `http://localhost:3000`.
+This avoids CORS failures when Vite selects a different port or hostname.
+For deployments where the API is on another host, set `VITE_API_BASE_URL` to
+that API's `/api/v1` URL and configure the Rails `FRONTEND_ORIGINS` accordingly.
 
 To override the API URL, set `VITE_API_BASE_URL` in `frontend/.env.local`.
-Start with `frontend/.env.example` as a template. If using a different frontend
-origin, set the comma-separated `FRONTEND_ORIGINS` environment variable for
-the Rails process.
+Start with `frontend/.env.example` as a template.
 
 ## Checks
 

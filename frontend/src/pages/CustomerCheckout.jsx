@@ -64,7 +64,7 @@ export default function CustomerCheckout() {
       <aside className="rounded-xl border border-[#DDE2E9] bg-white p-5 shadow-[0_4px_18px_rgba(37,37,37,0.06)]">
         <h2 className="mb-4 text-base font-semibold text-navy">Ringkasan pembelian</h2>
         <div className="space-y-3">{purchaseItems.map((item) => <div key={item.id} className="flex justify-between gap-3 text-xs">
-          <span className="text-[#566274]">{item.name}{item.variantId ? ` · ${[item.variantName, item.variantDesignName, item.variantColor, item.variantSize, item.variantOptions?.capacity].filter(Boolean).join(' · ')}` : ''} × {item.quantity}</span>
+          <span className="text-[#566274]">{item.name}{item.size ? ` · Ukuran ${item.size}` : ''} × {item.quantity}</span>
           <b className="shrink-0 text-navy">{money(item.unitPrice * item.quantity)}</b>
         </div>)}</div>
         <div className="mt-4 flex justify-between border-t border-[#DDE2E9] pt-4"><span className="text-sm font-semibold text-navy">Estimasi subtotal</span><strong className="text-lg text-navy">{money(purchaseTotal)}</strong></div>

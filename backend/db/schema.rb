@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_18_162000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_19_182500) do
   create_table "auth_sessions", force: :cascade do |t|
     t.integer "user_id", null: false
     t.string "token_digest", limit: 64, null: false
@@ -49,15 +49,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_18_162000) do
     t.decimal "subtotal", precision: 14, scale: 2, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.integer "product_variant_id"
-    t.string "variant_name", limit: 100
-    t.string "variant_color", limit: 60
-    t.string "variant_size", limit: 40
-    t.json "variant_options", default: {}, null: false
-    t.string "variant_design_name", limit: 100
+    t.integer "shoe_inventory_id"
+    t.string "inventory_model_name", limit: 100
+    t.string "inventory_color", limit: 60
+    t.string "inventory_size", limit: 40
+    t.json "inventory_attributes", default: {}, null: false
+    t.string "inventory_design_name", limit: 100
     t.index ["order_id"], name: "index_order_items_on_order_id"
     t.index ["product_id"], name: "index_order_items_on_product_id"
-    t.index ["product_variant_id"], name: "index_order_items_on_product_variant_id"
+    t.index ["shoe_inventory_id"], name: "index_order_items_on_shoe_inventory_id"
     t.check_constraint "quantity > 0", name: "order_items_quantity_positive"
     t.check_constraint "subtotal >= 0", name: "order_items_subtotal_nonnegative"
     t.check_constraint "unit_price >= 0", name: "order_items_unit_price_nonnegative"
@@ -73,9 +73,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_18_162000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "idempotency_key", limit: 100
+    t.string "payment_code", limit: 17, null: false
     t.index ["customer_id", "idempotency_key"], name: "index_orders_on_customer_id_and_idempotency_key", unique: true
     t.index ["customer_id"], name: "index_orders_on_customer_id"
     t.index ["order_number"], name: "index_orders_on_order_number", unique: true
+    t.index ["payment_code"], name: "index_orders_on_payment_code", unique: true
     t.index ["status"], name: "index_orders_on_status"
     t.check_constraint "total_amount >= 0", name: "orders_total_nonnegative"
   end
@@ -129,39 +131,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_18_162000) do
     t.boolean "is_primary", default: false, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.integer "product_variant_id"
+    t.integer "shoe_inventory_id"
     t.index ["product_id", "position"], name: "index_product_photos_on_product_id_and_position"
     t.index ["product_id"], name: "index_product_photos_on_product_id"
     t.index ["product_id"], name: "index_product_photos_one_primary_per_product", unique: true, where: "is_primary = 1"
-    t.index ["product_variant_id"], name: "index_product_photos_on_product_variant_id"
-    t.index ["product_variant_id"], name: "index_product_photos_one_primary_per_variant", unique: true, where: "is_primary = 1"
     t.index ["public_id"], name: "index_product_photos_on_public_id", unique: true
-    t.check_constraint "(product_id IS NOT NULL AND product_variant_id IS NULL) OR (product_id IS NULL AND product_variant_id IS NOT NULL)", name: "product_photos_exactly_one_owner"
-  end
-
-  create_table "product_variants", force: :cascade do |t|
-    t.integer "product_id", null: false
-    t.string "name", limit: 100, null: false
-    t.string "color", limit: 60, default: "", null: false
-    t.string "size", limit: 40, default: "", null: false
-    t.json "options", default: {}, null: false
-    t.decimal "sale_price", precision: 12, scale: 2
-    t.decimal "rent_price_per_day", precision: 12, scale: 2
-    t.integer "sale_stock", default: 0, null: false
-    t.integer "rental_stock", default: 0, null: false
-    t.string "image_url", limit: 2048
-    t.string "image_alt", limit: 255
-    t.boolean "active", default: true, null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.string "design_name", limit: 100, default: "Default", null: false
-    t.string "capacity", limit: 40, default: "", null: false
-    t.index ["product_id", "name", "design_name", "color", "size", "capacity"], name: "index_product_variants_on_product_model_design_inventory", unique: true
-    t.index ["product_id"], name: "index_product_variants_on_product_id"
-    t.check_constraint "rent_price_per_day IS NULL OR rent_price_per_day >= 0", name: "product_variants_rent_price_nonnegative"
-    t.check_constraint "rental_stock >= 0", name: "product_variants_rental_stock_nonnegative"
-    t.check_constraint "sale_price IS NULL OR sale_price >= 0", name: "product_variants_sale_price_nonnegative"
-    t.check_constraint "sale_stock >= 0", name: "product_variants_sale_stock_nonnegative"
+    t.index ["shoe_inventory_id"], name: "index_product_photos_on_shoe_inventory_id"
+    t.index ["shoe_inventory_id"], name: "index_product_photos_one_primary_per_shoe_inventory", unique: true, where: "is_primary = 1"
+    t.check_constraint "(product_id IS NOT NULL AND shoe_inventory_id IS NULL) OR (product_id IS NULL AND shoe_inventory_id IS NOT NULL)", name: "product_photos_exactly_one_owner"
   end
 
   create_table "products", force: :cascade do |t|
@@ -198,16 +175,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_18_162000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.text "return_condition"
-    t.integer "product_variant_id"
-    t.string "variant_name", limit: 100
-    t.string "variant_color", limit: 60
-    t.string "variant_size", limit: 40
-    t.json "variant_options", default: {}, null: false
-    t.string "variant_design_name", limit: 100
+    t.integer "shoe_inventory_id"
+    t.string "inventory_model_name", limit: 100
+    t.string "inventory_color", limit: 60
+    t.string "inventory_size", limit: 40
+    t.json "inventory_attributes", default: {}, null: false
+    t.string "inventory_design_name", limit: 100
+    t.string "model_preference", limit: 30
     t.index ["product_id", "start_date", "return_date"], name: "idx_on_product_id_start_date_return_date_845de10e75"
     t.index ["product_id"], name: "index_rental_items_on_product_id"
-    t.index ["product_variant_id"], name: "index_rental_items_on_product_variant_id"
     t.index ["rental_id"], name: "index_rental_items_on_rental_id"
+    t.index ["shoe_inventory_id"], name: "index_rental_items_on_shoe_inventory_id"
     t.check_constraint "quantity > 0", name: "rental_items_quantity_positive"
     t.check_constraint "rental_days > 0", name: "rental_items_days_positive"
     t.check_constraint "return_date > start_date", name: "rental_items_dates_in_order"
@@ -239,11 +217,46 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_18_162000) do
     t.string "idempotency_key", limit: 100
     t.datetime "actual_returned_at"
     t.boolean "stock_deducted", default: false, null: false
+    t.string "payment_code", limit: 17, null: false
     t.index ["customer_id", "idempotency_key"], name: "index_rentals_on_customer_id_and_idempotency_key", unique: true
     t.index ["customer_id"], name: "index_rentals_on_customer_id"
+    t.index ["payment_code"], name: "index_rentals_on_payment_code", unique: true
     t.index ["rental_number"], name: "index_rentals_on_rental_number", unique: true
     t.index ["status"], name: "index_rentals_on_status"
     t.check_constraint "total_amount >= 0", name: "rentals_total_nonnegative"
+  end
+
+  create_table "shoe_inventories", force: :cascade do |t|
+    t.integer "product_id", null: false
+    t.string "name", limit: 100, null: false
+    t.string "color", limit: 60, default: "", null: false
+    t.string "size", limit: 40, default: "", null: false
+    t.json "options", default: {}, null: false
+    t.decimal "sale_price", precision: 12, scale: 2
+    t.decimal "rent_price_per_day", precision: 12, scale: 2
+    t.integer "sale_stock", default: 0, null: false
+    t.integer "rental_stock", default: 0, null: false
+    t.string "image_url", limit: 2048
+    t.string "image_alt", limit: 255
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.string "design_name", limit: 100, default: "Default", null: false
+    t.string "capacity", limit: 40, default: "", null: false
+    t.index ["product_id", "name", "design_name", "color", "size", "capacity"], name: "index_product_variants_on_product_model_design_inventory", unique: true
+    t.index ["product_id"], name: "index_shoe_inventories_on_product_id"
+    t.check_constraint "rent_price_per_day IS NULL OR rent_price_per_day >= 0", name: "product_variants_rent_price_nonnegative"
+    t.check_constraint "rental_stock >= 0", name: "product_variants_rental_stock_nonnegative"
+    t.check_constraint "sale_price IS NULL OR sale_price >= 0", name: "product_variants_sale_price_nonnegative"
+    t.check_constraint "sale_stock >= 0", name: "product_variants_sale_stock_nonnegative"
+  end
+
+  create_table "transaction_code_sequences", force: :cascade do |t|
+    t.date "sequence_date", null: false
+    t.integer "last_number", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["sequence_date"], name: "index_transaction_code_sequences_on_sequence_date", unique: true
   end
 
   create_table "users", force: :cascade do |t|
@@ -263,22 +276,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_18_162000) do
 
   add_foreign_key "auth_sessions", "users", on_delete: :cascade
   add_foreign_key "order_items", "orders", on_delete: :cascade
-  add_foreign_key "order_items", "product_variants"
   add_foreign_key "order_items", "products", on_delete: :restrict
+  add_foreign_key "order_items", "shoe_inventories"
   add_foreign_key "orders", "customers", on_delete: :restrict
   add_foreign_key "payments", "orders", on_delete: :restrict
   add_foreign_key "payments", "rentals", on_delete: :restrict
   add_foreign_key "payments", "users", column: "confirmed_by_id", on_delete: :nullify
   add_foreign_key "payments", "users", column: "created_by_id", on_delete: :nullify
-  add_foreign_key "product_photos", "product_variants"
   add_foreign_key "product_photos", "products", on_delete: :cascade
-  add_foreign_key "product_variants", "products"
+  add_foreign_key "product_photos", "shoe_inventories"
   add_foreign_key "products", "categories"
-  add_foreign_key "rental_items", "product_variants"
   add_foreign_key "rental_items", "products", on_delete: :restrict
   add_foreign_key "rental_items", "rentals", on_delete: :cascade
+  add_foreign_key "rental_items", "shoe_inventories"
   add_foreign_key "rental_status_histories", "rentals"
   add_foreign_key "rental_status_histories", "users", column: "changed_by_id", on_delete: :nullify
   add_foreign_key "rentals", "customers", on_delete: :restrict
+  add_foreign_key "shoe_inventories", "products"
   add_foreign_key "users", "customers", on_delete: :cascade
 end

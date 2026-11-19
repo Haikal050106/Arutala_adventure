@@ -51,7 +51,8 @@ module Api
             @rental.transition_to!(
               rental_params[:status],
               actor: current_user,
-              return_conditions: return_conditions
+              return_conditions: return_conditions,
+              shoe_inventory_assignments: rental_params[:shoe_inventory_assignments]
             )
           end
         end
@@ -82,7 +83,8 @@ module Api
       def rental_params
         params.require(:rental).permit(
           :customer_id, :village_name, :status, :notes,
-          items: %i[product_id variant_id quantity start_date return_date],
+          items: %i[product_id shoe_inventory_id size quantity start_date return_date],
+          shoe_inventory_assignments: %i[rental_item_id shoe_inventory_id],
           return_conditions: %i[rental_item_id condition]
         )
       end
@@ -90,18 +92,18 @@ module Api
       def serialize_rental(rental)
         serialized = rental.as_json(
           only: %i[
-            id rental_number customer_id village_name status return_status notes total_amount actual_returned_at stock_deducted created_at updated_at
+            id rental_number payment_code customer_id village_name status return_status notes total_amount actual_returned_at stock_deducted created_at updated_at
           ],
           include: {
             customer: { only: %i[id name email phone village_name] },
             rental_items: {
               only: %i[
-                id product_id product_variant_id variant_name variant_design_name variant_color variant_size variant_options
+                id product_id shoe_inventory_id inventory_model_name inventory_design_name inventory_color inventory_size inventory_attributes
                 start_date return_date quantity unit_price_per_day rental_days subtotal return_condition
               ],
               include: {
                 product: { only: %i[id slug name] },
-                product_variant: { only: %i[id name design_name color size capacity options] }
+                shoe_inventory: { only: %i[id name design_name color size capacity options active] }
               }
             },
             payments: { only: Payment::SERIALIZED_FIELDS }

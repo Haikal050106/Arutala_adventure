@@ -1,4 +1,4 @@
-class ProductVariant < ApplicationRecord
+class ShoeInventory < ApplicationRecord
   belongs_to :product
   has_many :product_photos, -> { order(:position, :id) }, dependent: :destroy
   has_many :order_items, dependent: :restrict_with_error
@@ -19,7 +19,15 @@ class ProductVariant < ApplicationRecord
     scope: %i[product_id design_name color size capacity],
     message: "dan kombinasi desain serta atribut ini sudah ada."
   }
+  validates :active, inclusion: { in: [ true, false ] }
   validate :options_must_be_an_object
+  validate :must_be_valid_shoe_inventory
+
+  before_destroy :prevent_destroy_when_used
+
+  def used_in_transaction?
+    order_items.exists? || rental_items.exists?
+  end
 
   def primary_photo
     product_photos.find_by(is_primary: true) || product_photos.first
@@ -40,5 +48,20 @@ class ProductVariant < ApplicationRecord
 
   def options_must_be_an_object
     errors.add(:options, "harus berupa objek.") unless options.is_a?(Hash)
+  end
+
+  def must_be_valid_shoe_inventory
+    if product&.shoe?
+      errors.add(:size, "harus antara 38 sampai 43.") unless Product::SHOE_SIZES.include?(size)
+    else
+      errors.add(:product, "inventori hanya dapat digunakan untuk sepatu.")
+    end
+  end
+
+  def prevent_destroy_when_used
+    return unless used_in_transaction?
+
+    errors.add(:base, "Inventori sepatu yang sudah digunakan pada transaksi tidak dapat dihapus.")
+    throw(:abort)
   end
 end

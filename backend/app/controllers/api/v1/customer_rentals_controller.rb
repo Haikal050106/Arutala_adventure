@@ -29,7 +29,7 @@ module Api
         end
 
         attributes = params.require(:rental).permit(
-          :village_name, :notes, items: %i[product_id variant_id quantity start_date return_date]
+          :village_name, :notes, items: %i[product_id size quantity start_date return_date]
         )
         rental = Rental.create_customer_booking!(
           customer: current_user.customer,
@@ -54,18 +54,17 @@ module Api
       def serialize_rental(rental)
         serialized = rental.as_json(
           only: %i[
-            id rental_number customer_id village_name status return_status notes total_amount stock_deducted created_at updated_at
+            id rental_number payment_code customer_id village_name status return_status notes total_amount stock_deducted created_at updated_at
           ],
           include: {
             customer: { only: %i[id name email phone village_name] },
             rental_items: {
               only: %i[
-                id product_id product_variant_id variant_name variant_design_name variant_color variant_size variant_options
+                id product_id inventory_size
                 start_date return_date quantity unit_price_per_day rental_days subtotal return_condition
               ],
               include: {
-                product: { only: %i[id slug name] },
-                product_variant: { only: %i[id name design_name color size capacity options] }
+                product: { only: %i[id slug name] }
               }
             },
             payments: { only: Payment::SERIALIZED_FIELDS }

@@ -13,7 +13,7 @@ Rails.application.routes.draw do
       resources :categories, only: %i[index show create update destroy]
       resources :products, only: %i[index show create update destroy], param: :id do
         get :rental_availability, on: :member
-        resources :variants, controller: :product_variants, only: %i[create update destroy] do
+        resources :shoe_inventories, controller: :shoe_inventories, only: %i[create update destroy] do
           resources :photos, controller: :product_photos, only: %i[create update destroy]
         end
         resources :photos, controller: :product_photos, only: %i[create update destroy]

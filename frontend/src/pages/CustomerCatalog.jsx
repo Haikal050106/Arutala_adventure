@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 import { useCustomerStore } from '../components/useCustomerStore'
 import CustomerProductCard from '../components/CustomerProductCard'
 
+
 export default function CustomerCatalog() {
   const { products, categories, catalogLoading, catalogError, reloadCatalog } = useCustomerStore()
   const [searchParams, setSearchParams] = useSearchParams()

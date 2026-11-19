@@ -22,7 +22,7 @@ export default function StaticQrisDialog({ transactionNumber, amount, qrImage, p
 
   return <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-secondary/60 p-4" role="presentation">
     <section role="dialog" aria-modal="true" aria-labelledby="static-qris-title" className="my-auto max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-5 shadow-xl">
-      <h2 id="static-qris-title" className="m-0 text-lg font-bold text-secondary">Pembayaran QRIS statis</h2>
+      <h2 id="static-qris-title" className="m-0 text-lg font-bold text-secondary">Pembayaran QRIS</h2>
       <p className="mb-1 mt-2 text-xs text-slate-600">{transactionNumber} · Sampaikan nominal ini kepada pelanggan:</p>
       <p className="m-0 text-center text-2xl font-extrabold text-secondary">{money(amount)}</p>
       <img src={qrImage} alt="Barcode QRIS toko" className="mx-auto my-4 max-h-64 w-full max-w-64 rounded-lg border border-slate-200 object-contain p-2" />

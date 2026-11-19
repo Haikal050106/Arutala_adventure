@@ -1,5 +1,6 @@
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api/v1').replace(/\/+$/, '')
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/+$/, '')
 const ADMIN_TOKEN_KEY = 'arutala-admin-api-token'
+export const ADMIN_SESSION_EXPIRED_EVENT = 'arutala:admin-session-expired'
 
 export class AdminApiError extends Error {
   constructor(message, status) {
@@ -7,6 +8,12 @@ export class AdminApiError extends Error {
     this.name = 'AdminApiError'
     this.status = status
   }
+}
+
+function handleUnauthorized(token) {
+  if (!token) return
+  clearAdminToken()
+  window.dispatchEvent(new Event(ADMIN_SESSION_EXPIRED_EVENT))
 }
 
 export async function adminApiRequest(path, { method = 'GET', body, token, idempotencyKey } = {}) {
@@ -25,6 +32,7 @@ export async function adminApiRequest(path, { method = 'GET', body, token, idemp
 
   const payload = await response.json().catch(() => ({}))
   if (!response.ok) {
+    if (response.status === 401) handleUnauthorized(token)
     throw new AdminApiError(payload.error?.message || 'Permintaan ke server gagal.', response.status)
   }
   return payload
@@ -48,6 +56,7 @@ export async function adminApiUpload(path, { method = 'POST', file, body = {}, t
 
   const payload = await response.json().catch(() => null)
   if (!response.ok) {
+    if (response.status === 401) handleUnauthorized(token)
     throw new AdminApiError(
       payload?.error?.message || `API Rails gagal memproses foto (HTTP ${response.status}). Periksa log server untuk detail.`,
       response.status,
