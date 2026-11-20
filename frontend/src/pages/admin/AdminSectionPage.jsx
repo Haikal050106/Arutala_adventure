@@ -8,7 +8,6 @@ import { adminApiRequest, adminApiUpload, readAdminToken } from '../../lib/admin
 import { money, rentalDays, readLocal } from '../../lib/customer-shop'
 import { isShoeProduct } from '../../lib/shoe-constants'
 
-const activeStatuses = new Set(['Menunggu konfirmasi', 'Dikonfirmasi', 'Diproses'])
 const purchaseStatuses = ['Menunggu konfirmasi', 'Dikonfirmasi', 'Diproses', 'Selesai', 'Dibatalkan']
 const rentalStatuses = ['Menunggu konfirmasi', 'Dikonfirmasi', 'Diproses', 'Dikembalikan', 'Dibatalkan']
 const orderStatusLabels = {
@@ -18,6 +17,13 @@ const orderStatusLabels = {
   completed: 'Selesai',
   cancelled: 'Dibatalkan',
 }
+const rentalStatusLabels = {
+  ...orderStatusLabels,
+  active: 'Berjalan',
+  returned: 'Dikembalikan',
+  rejected: 'Ditolak',
+}
+const activeStatuses = new Set(['Menunggu konfirmasi', 'Dikonfirmasi', 'Diproses'])
 const paymentStatusLabels = { unpaid: 'Belum dibayar', partially_paid: 'Sebagian dibayar', paid: 'Lunas' }
 const statusClass = (status) => status === 'Dibatalkan' ? 'bg-slate-100 text-slate-600' : status === 'Selesai' || status === 'Dikembalikan' ? 'bg-emerald-50 text-emerald-700' : status === 'Diproses' ? 'bg-blue-50 text-blue-700' : status === 'Dikonfirmasi' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'
 const isoDate = (date) => new Date(date).toLocaleDateString('id-ID', { dateStyle: 'medium' })
@@ -69,6 +75,20 @@ function normalizeOrder(order) {
   }
 }
 
+function normalizeReportTransaction(transaction) {
+  const statusLabels = transaction.kind === 'rental' ? rentalStatusLabels : orderStatusLabels
+  return {
+    ...transaction,
+    id: transaction.number,
+    paymentCode: transaction.payment_code,
+    createdAt: transaction.created_at,
+    successfulPaymentAmount: Number(transaction.successful_payment_amount),
+    items: [{ kind: transaction.kind }],
+    total: Number(transaction.total_amount),
+    status: statusLabels[transaction.status] || transaction.status,
+  }
+}
+
 function rentalRecords(orders) {
   return orders.flatMap((order) => order.items.filter((item) => item.kind === 'rental').map((item) => ({ order, item })))
 }
@@ -78,27 +98,14 @@ function orderTypes(order) {
   return kinds.size > 1 ? 'Campuran' : kinds.has('rental') ? 'Penyewaan' : 'Pembelian'
 }
 
-function calculateTotals(data) {
-  const orders = data.orders
-  const rentals = rentalRecords(orders)
-  const completed = orders.filter((order) => order.status === 'Selesai' || order.status === 'Dikembalikan')
-  return {
-    products: data.products.length,
-    categories: data.categories.length,
-    customers: data.customers.length,
-    orders: orders.length,
-    activeRentals: rentals.filter(({ order }) => activeStatuses.has(order.status)).length,
-    revenue: completed.reduce((sum, order) => sum + order.total, 0),
-  }
-}
-
 export default function AdminSectionPage({ section }) {
   const { data, setData } = useAdminDemoStore()
   const { notify } = useOutletContext()
   const isCatalogSection = ['products', 'categories'].includes(section.key)
   const isCustomerSection = section.key === 'customers'
   const isOrderSection = section.key === 'orders'
-  const isApiSection = isCatalogSection || isCustomerSection || isOrderSection
+  const isReportSection = section.key === 'reports'
+  const isApiSection = isCatalogSection || isCustomerSection || isOrderSection || isReportSection
   const { user } = useAdminAuth()
   const canEditCustomers = user?.role === 'admin'
   const [catalogData, setCatalogData] = useState(null)
@@ -110,6 +117,9 @@ export default function AdminSectionPage({ section }) {
   const [serverOrders, setServerOrders] = useState([])
   const [ordersLoading, setOrdersLoading] = useState(isOrderSection)
   const [ordersError, setOrdersError] = useState('')
+  const [reportsData, setReportsData] = useState(null)
+  const [reportsLoading, setReportsLoading] = useState(isReportSection)
+  const [reportsError, setReportsError] = useState('')
   const [websiteOrders] = useState(() => {
     const stored = readLocal('arutala-customer-orders', [])
     return Array.isArray(stored) ? stored : []
@@ -124,7 +134,7 @@ export default function AdminSectionPage({ section }) {
     : isCustomerSection
       ? { ...data, customers: customersData || [] }
       : data, [catalogData, customersData, data, isCatalogSection, isCustomerSection])
-  const totals = useMemo(() => calculateTotals(data), [data])
+  const reportRecords = useMemo(() => (reportsData?.transactions || []).map(normalizeReportTransaction), [reportsData])
 
   useEffect(() => {
     if (!isCatalogSection) return undefined
@@ -195,6 +205,26 @@ export default function AdminSectionPage({ section }) {
     return () => { active = false }
   }, [isOrderSection])
 
+  useEffect(() => {
+    if (!isReportSection) return undefined
+    let active = true
+    const loadReports = async () => {
+      setReportsLoading(true)
+      setReportsError('')
+      try {
+        const payload = await adminApiRequest('/reports/transactions', { token: readAdminToken() })
+        if (!Array.isArray(payload.transactions)) throw new Error('Format laporan dari server tidak valid.')
+        if (active) setReportsData(payload)
+      } catch (error) {
+        if (active) setReportsError(apiErrorMessage(error))
+      } finally {
+        if (active) setReportsLoading(false)
+      }
+    }
+    loadReports()
+    return () => { active = false }
+  }, [isReportSection])
+
   const websiteRentals = useMemo(() => websiteOrders
     .filter((order) => order.items?.some((item) => item.kind === 'rental'))
     .map((order) => ({ ...order, source: 'customer-website' })), [websiteOrders])
@@ -209,8 +239,8 @@ export default function AdminSectionPage({ section }) {
     if (section.key === 'orders') return serverOrders.filter((order) => `${order.paymentCode || ''} ${order.id} ${order.customer.name} ${order.customer.email}`.toLowerCase().includes(normalizedQuery) && (filter === 'Semua status' || order.status === filter))
     if (section.key === 'rentals') return rentals.filter(({ order, item }) => `${order.id} ${order.customer.name} ${order.customer.villageAddress || ''} ${item.name}`.toLowerCase().includes(normalizedQuery) && (filter === 'Semua status' || order.status === filter))
     if (section.key === 'customers') return viewData.customers.filter((customer) => `${customer.name} ${customer.email} ${customer.phone}`.toLowerCase().includes(normalizedQuery))
-    return data.orders.filter((order) => `${order.id} ${order.customer.name} ${order.customer.email}`.toLowerCase().includes(normalizedQuery) && (reportKind === 'Semua transaksi' || order.items.some((item) => reportKind === 'Pembelian' ? item.kind === 'purchase' : item.kind === 'rental')))
-  }, [data, filter, normalizedQuery, reportKind, rentals, section.key, serverOrders, viewData])
+    return reportRecords.filter((transaction) => `${transaction.paymentCode || ''} ${transaction.id} ${transaction.customer.name}`.toLowerCase().includes(normalizedQuery) && (reportKind === 'Semua transaksi' || transaction.items.some((item) => reportKind === 'Pembelian' ? item.kind === 'purchase' : item.kind === 'rental')))
+  }, [filter, normalizedQuery, reportKind, rentals, reportRecords, section.key, serverOrders, viewData])
 
   const save = async (values) => {
     const now = new Date().toISOString()
@@ -564,14 +594,21 @@ export default function AdminSectionPage({ section }) {
     {catalogError && <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">Data {title.toLowerCase()} gagal dimuat dari server: {catalogError}</p>}
     {customersError && <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">Data {title.toLowerCase()} gagal dimuat dari server: {customersError}</p>}
     {ordersError && <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">Daftar pesanan gagal dimuat dari server: {ordersError}</p>}
+    {reportsError && <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">Laporan gagal dimuat dari server: {reportsError}</p>}
 
-    {section.key === 'reports' && <section className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Ringkasan laporan">
-      {[['Total pesanan', totals.orders], ['Penyewaan aktif', totals.activeRentals], ['Pelanggan', totals.customers], ['Pendapatan selesai', money(totals.revenue)]].map(([label, value]) => <article key={label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><p className="m-0 text-xs font-medium text-slate-500">{label}</p><p className="mb-0 mt-2 text-xl font-bold text-navy">{value}</p></article>)}
+    {isReportSection && reportsData && <section className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Ringkasan laporan">
+      {[
+        ['Total transaksi', reportsData.summary.transactions.purchases + reportsData.summary.transactions.rentals],
+        ['Pendapatan pembelian', money(reportsData.summary.revenue.purchase)],
+        ['Pendapatan penyewaan', money(reportsData.summary.revenue.rental)],
+        ['Total pendapatan berhasil', money(reportsData.summary.revenue.total)],
+      ].map(([label, value]) => <article key={label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><p className="m-0 text-xs font-medium text-slate-500">{label}</p><p className="mb-0 mt-2 text-xl font-bold text-navy">{value}</p></article>)}
     </section>}
+    {isReportSection && reportsData?.reporting_start_at && <p className="mb-4 text-xs text-slate-500">Laporan operasional sejak {new Date(reportsData.reporting_start_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}. Riwayat sebelum tanggal ini tetap tersedia pada menu transaksi.</p>}
 
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-4 sm:px-5">
-        <div><h2 className="m-0 text-sm font-semibold text-navy">{section.key === 'reports' ? 'Rincian transaksi' : `Daftar ${title.toLowerCase()}`}</h2><p className="mb-0 mt-1 text-xs text-slate-500">{count} data · {isApiSection ? 'tersimpan di server' : 'tersimpan di browser ini'}</p></div>
+        <div><h2 className="m-0 text-sm font-semibold text-navy">{isReportSection ? 'Rincian transaksi setelah reset' : `Daftar ${title.toLowerCase()}`}</h2><p className="mb-0 mt-1 text-xs text-slate-500">{count} data · {isApiSection ? 'tersimpan di server' : 'tersimpan di browser ini'}</p></div>
         <div className="flex w-full flex-wrap gap-2 sm:w-auto">
           <label className="relative min-w-[190px] flex-1 sm:flex-none"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={searchLabel} aria-label={searchLabel} className="h-10 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-xs outline-none focus:border-primary focus:ring-2 focus:ring-primary/25" /></label>
           {section.key === 'products' && <select aria-label="Filter kategori" value={filter} onChange={(event) => setFilter(event.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-600 outline-none"><option>Semua kategori</option>{viewData.categories.map((category) => <option key={category.id}>{category.name}</option>)}</select>}
@@ -582,11 +619,11 @@ export default function AdminSectionPage({ section }) {
       <div className="overflow-x-auto">
         <table className="w-full min-w-[900px] border-collapse text-left">
           <thead className="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-            <tr>{(section.key === 'products' ? ['Produk', 'Kategori', 'Harga beli', 'Harga sewa / hari', 'Stok jual / sewa', 'Aksi'] : section.key === 'categories' ? ['Kategori', 'Deskripsi', 'Jumlah produk', 'Aksi'] : section.key === 'orders' || section.key === 'reports' ? ['ID transaksi', 'Tanggal', 'Pelanggan', 'Jenis', 'Total', 'Status', ...(section.key === 'orders' ? ['Pembayaran'] : []), ...(section.key === 'orders' && !isOrderSection ? ['Aksi'] : [])] : section.key === 'rentals' ? ['ID sewa', 'Pelanggan', 'Alamat Desa/Kelurahan', 'Perlengkapan', 'Periode', 'Jumlah', 'Status', 'Aksi'] : ['Pelanggan', 'Email', 'Telepon', 'Bergabung', 'Pesanan', 'Aksi']).map((column) => <th key={column} className="h-11 whitespace-nowrap px-4">{column}</th>)}</tr>
+            <tr>{(section.key === 'products' ? ['Produk', 'Kategori', 'Harga beli', 'Harga sewa / hari', 'Stok jual / sewa', 'Aksi'] : section.key === 'categories' ? ['Kategori', 'Deskripsi', 'Jumlah produk', 'Aksi'] : section.key === 'reports' ? ['ID transaksi', 'Tanggal', 'Pelanggan', 'Jenis', 'Total transaksi', 'Pendapatan berhasil', 'Status'] : section.key === 'orders' ? ['ID transaksi', 'Tanggal', 'Pelanggan', 'Jenis', 'Total', 'Status', 'Pembayaran'] : section.key === 'rentals' ? ['ID sewa', 'Pelanggan', 'Alamat Desa/Kelurahan', 'Perlengkapan', 'Periode', 'Jumlah', 'Status', 'Aksi'] : ['Pelanggan', 'Email', 'Telepon', 'Bergabung', 'Pesanan', 'Aksi']).map((column) => <th key={column} className="h-11 whitespace-nowrap px-4">{column}</th>)}</tr>
           </thead>
           <tbody>
-            {isApiSection && (catalogLoading || customersLoading || ordersLoading) && <tr><td colSpan={section.key === 'products' ? 6 : section.key === 'categories' ? 4 : section.key === 'orders' ? 7 : 6} className="h-20 text-center text-sm text-slate-500">Memuat data dari server...</td></tr>}
-            {isApiSection && !catalogLoading && !customersLoading && !ordersLoading && !catalogError && !customersError && !ordersError && visibleRecords.length === 0 && <tr><td colSpan={section.key === 'products' ? 6 : section.key === 'categories' ? 4 : section.key === 'orders' ? 7 : 6} className="h-20 text-center text-sm text-slate-500">Belum ada data yang cocok.</td></tr>}
+            {isApiSection && (catalogLoading || customersLoading || ordersLoading || reportsLoading) && <tr><td colSpan={section.key === 'products' ? 6 : section.key === 'categories' ? 4 : section.key === 'orders' || isReportSection ? 7 : 6} className="h-20 text-center text-sm text-slate-500">Memuat data dari server...</td></tr>}
+            {isApiSection && !catalogLoading && !customersLoading && !ordersLoading && !reportsLoading && !catalogError && !customersError && !ordersError && !reportsError && visibleRecords.length === 0 && <tr><td colSpan={section.key === 'products' ? 6 : section.key === 'categories' ? 4 : section.key === 'orders' || isReportSection ? 7 : 6} className="h-20 text-center text-sm text-slate-500">Belum ada data yang cocok.</td></tr>}
             {visibleRecords.map((record) => {
               const isRental = section.key === 'rentals'
               const isReport = section.key === 'reports'
@@ -596,7 +633,7 @@ export default function AdminSectionPage({ section }) {
               return <tr key={isRental ? `${order.id}-${item.id}` : record.id} className="border-t border-slate-100 text-xs text-slate-600">
                 {section.key === 'products' && <><td className="h-14 px-4 font-semibold text-navy">{record.name}</td><td className="px-4">{record.category}</td><td className="px-4">{money(record.salePrice)}</td><td className="px-4">{money(record.rentPricePerDay)}</td><td className="px-4">{record.saleStock} / {record.rentalStock}</td><td className="px-4">{renderActions(record)}</td></>}
                 {section.key === 'categories' && <><td className="h-14 px-4 font-semibold text-navy">{record.name}</td><td className="max-w-sm px-4">{record.description}</td><td className="px-4">{viewData.products.filter((product) => product.category_id === record.id).length}</td><td className="px-4">{renderActions(record)}</td></>}
-                {(section.key === 'orders' || isReport) && <><td className="h-14 px-4"><span className="block font-semibold text-navy">{record.paymentCode || record.id}</span>{record.paymentCode && <span className="text-[10px] text-slate-500">No. transaksi: {record.id}</span>}</td><td className="whitespace-nowrap px-4">{isoDate(record.createdAt)}</td><td className="px-4">{record.customer.name}</td><td className="px-4">{orderTypes(record)}</td><td className="whitespace-nowrap px-4 font-semibold text-navy">{money(record.total)}</td><td className="px-4"><span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-[10px] font-semibold ${statusClass(record.status)}`}>{record.status}</span></td>{section.key === 'orders' && <td className="max-w-64 px-4"><span className="whitespace-nowrap font-semibold text-navy">{paymentStatusLabels[record.payment_status] || 'Belum dibayar'}</span><span className="mt-1 block whitespace-nowrap text-[10px] text-slate-500">{money(record.amount_paid || 0)} / {money(record.total)}</span>{(record.payments || []).map((payment) => <span key={payment.id} className="mt-1 block whitespace-nowrap text-[10px] text-slate-500">{payment.reference} · {payment.method === 'cash' ? 'Tunai' : payment.method} · {isoDate(payment.paid_at)}</span>)}</td>}{section.key === 'orders' && !isOrderSection && <td className="px-4">{renderActions(record)}</td>}</>}
+                {(section.key === 'orders' || isReport) && <><td className="h-14 px-4"><span className="block font-semibold text-navy">{record.paymentCode || record.id}</span>{record.paymentCode && <span className="text-[10px] text-slate-500">No. transaksi: {record.id}</span>}</td><td className="whitespace-nowrap px-4">{isoDate(record.createdAt)}</td><td className="px-4">{record.customer.name}</td><td className="px-4">{orderTypes(record)}</td><td className="whitespace-nowrap px-4 font-semibold text-navy">{money(record.total)}</td>{isReport && <td className="whitespace-nowrap px-4 font-semibold text-navy">{money(record.successfulPaymentAmount)}</td>}<td className="px-4"><span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-[10px] font-semibold ${statusClass(record.status)}`}>{record.status}</span></td>{section.key === 'orders' && <td className="max-w-64 px-4"><span className="whitespace-nowrap font-semibold text-navy">{paymentStatusLabels[record.payment_status] || 'Belum dibayar'}</span><span className="mt-1 block whitespace-nowrap text-[10px] text-slate-500">{money(record.amount_paid || 0)} / {money(record.total)}</span>{(record.payments || []).map((payment) => <span key={payment.id} className="mt-1 block whitespace-nowrap text-[10px] text-slate-500">{payment.reference} · {payment.method === 'cash' ? 'Tunai' : payment.method} · {isoDate(payment.paid_at)}</span>)}</td>}</>}
                 {isRental && <><td className="h-14 px-4 font-semibold text-navy">{order.id}</td><td className="px-4">{order.customer.name}</td><td className="max-w-56 px-4">{order.customer.villageAddress || '—'}</td><td className="px-4">{item.name}</td><td className="whitespace-nowrap px-4">{isoDate(`${item.startDate}T00:00:00`)}–{isoDate(`${item.returnDate}T00:00:00`)}</td><td className="px-4">{item.quantity}</td><td className="px-4"><span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-[10px] font-semibold ${statusClass(order.status)}`}>{order.status}</span></td><td className="px-4">{order.source === 'customer-website' ? <span className="text-[11px] text-slate-400">Website</span> : renderActions(record)}</td></>}
                 {section.key === 'customers' && <><td className="h-14 px-4 font-semibold text-navy">{record.name}</td><td className="px-4">{record.email}</td><td className="whitespace-nowrap px-4">{record.phone}</td><td className="whitespace-nowrap px-4">{isoDate(record.createdAt)}</td><td className="px-4">{customerOrders ?? '—'}</td><td className="px-4">{renderActions(record)}</td></>}
               </tr>

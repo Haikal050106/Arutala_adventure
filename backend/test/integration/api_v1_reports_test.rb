@@ -75,25 +75,89 @@ class ApiV1ReportsTest < ActionDispatch::IntegrationTest
     assert_equal rental.rental_number, report.fetch("pending_rentals").first.fetch("number")
   end
 
-  test "dashboard filters date range and returns monthly buckets" do
+  test "dashboard clamps report dates to the operational reset and returns monthly buckets" do
     order = create_order(customer: @customer, quantity: 1)
-    old_date = Date.current - 2.months
-    order.update_column(:created_at, old_date.beginning_of_day)
+    reset_at = ReportingWindow::RESET_AT
+    order.update_column(:created_at, reset_at + 1.hour)
     payment = record_payment(order: order, amount: 125_000, key: "dashboard-monthly-old")
-    payment.update_column(:paid_at, old_date.noon)
+    payment.update_column(:paid_at, reset_at + 2.hours)
 
     get "/api/v1/dashboard", params: {
-      start_date: old_date.beginning_of_month.iso8601,
-      end_date: Date.current.iso8601,
+      start_date: (reset_at.to_date - 2.months).iso8601,
+      end_date: (reset_at.to_date + 2.months).iso8601,
       period: "monthly"
     }
 
     assert_response :success
     report = response.parsed_body
     assert_equal BigDecimal("125000"), BigDecimal(report.dig("revenue", "purchase"))
-    assert_equal old_date.beginning_of_month.strftime("%Y-%m"), report.fetch("revenue_chart").first.fetch("date")
-    assert_equal old_date.beginning_of_month.strftime("%Y-%m"), report.fetch("filters").fetch("start_date")[0, 7]
+    assert_equal reset_at.to_date.iso8601, report.fetch("filters").fetch("start_date")
+    assert_equal reset_at.iso8601(3), report.fetch("reporting_start_at")
+    assert_equal reset_at.to_date.beginning_of_month.strftime("%Y-%m"), report.fetch("revenue_chart").first.fetch("date")
     assert_equal 3, report.fetch("revenue_chart").length
+  end
+
+  test "reports exclude pre-reset transactions and payments while transaction history remains available" do
+    reset_at = ReportingWindow::RESET_AT
+    old_order = create_order(customer: @customer, quantity: 1)
+    old_order.update_column(:created_at, reset_at - 1.second)
+    record_payment(order: old_order, amount: 10_000, key: "pre-reset-order-payment")
+
+    old_rental = create_rental(customer: @offline_customer, quantity: 1)
+    old_rental.transition_to!("confirmed", actor: @default_test_user)
+    old_rental.update_column(:created_at, reset_at - 1.second)
+    record_payment(rental: old_rental, amount: 10_000, key: "pre-reset-rental-payment")
+
+    get "/api/v1/dashboard", params: {
+      start_date: reset_at.to_date.iso8601,
+      end_date: Date.current.iso8601
+    }
+
+    assert_response :success
+    assert_equal BigDecimal("0"), BigDecimal(response.parsed_body.dig("revenue", "total"))
+    assert_equal 0, response.parsed_body.dig("transactions", "purchases")
+    assert_equal 0, response.parsed_body.dig("transactions", "rentals")
+
+    get "/api/v1/reports/transactions"
+
+    assert_response :success
+    assert_equal BigDecimal("0"), BigDecimal(response.parsed_body.dig("summary", "revenue", "total"))
+    assert_equal 0, response.parsed_body.dig("summary", "transactions", "purchases")
+    assert_equal 0, response.parsed_body.dig("summary", "transactions", "rentals")
+    assert_empty response.parsed_body.fetch("transactions")
+
+    get "/api/v1/orders"
+    assert_response :success
+    assert_includes response.parsed_body.map { |order| order.fetch("id") }, old_order.id
+
+    get "/api/v1/rentals"
+    assert_response :success
+    assert_includes response.parsed_body.map { |rental| rental.fetch("id") }, old_rental.id
+
+    new_order = create_order(customer: @customer, quantity: 1)
+    record_payment(order: new_order, amount: 50_000, key: "post-reset-order-payment")
+    new_rental = create_rental(customer: @offline_customer, quantity: 1)
+    new_rental.transition_to!("confirmed", actor: @default_test_user)
+    record_payment(rental: new_rental, amount: 20_000, key: "post-reset-rental-payment")
+
+    get "/api/v1/dashboard", params: {
+      start_date: reset_at.to_date.iso8601,
+      end_date: Date.current.iso8601
+    }
+
+    assert_response :success
+    assert_equal BigDecimal("70000"), BigDecimal(response.parsed_body.dig("revenue", "total"))
+
+    get "/api/v1/reports/transactions"
+
+    assert_response :success
+    report = response.parsed_body
+    assert_equal 1, report.dig("summary", "transactions", "purchases")
+    assert_equal 1, report.dig("summary", "transactions", "rentals")
+    assert_equal BigDecimal("70000"), BigDecimal(report.dig("summary", "revenue", "total"))
+    assert_equal %w[purchase rental], report.fetch("transactions").map { |transaction| transaction.fetch("kind") }.sort
+    assert_equal [ BigDecimal("20000"), BigDecimal("50000") ],
+      report.fetch("transactions").map { |transaction| BigDecimal(transaction.fetch("successful_payment_amount")) }.sort
   end
 
   test "dashboard rejects invalid date range and period" do

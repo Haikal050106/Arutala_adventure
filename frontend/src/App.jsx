@@ -8,8 +8,10 @@ import AdminSectionPage from './pages/admin/AdminSectionPage'
 import AdminPOSPage from './pages/admin/AdminPOSPage'
 import AdminRentalsPage from './pages/admin/AdminRentalsPage'
 import AdminPaymentHistoryPage from './pages/admin/AdminPaymentHistoryPage'
+import AdminAccountPage from './pages/admin/AdminAccountPage'
 import { adminNavigation } from './data/admin-navigation'
 import { AdminDemoProvider } from './components/AdminDemoStore'
+import { getStaffRouteRedirect } from './lib/admin-access'
 function RequireStaff({ allowedRoles = ['admin', 'cashier'] }) {
   const location = useLocation()
   const outletContext = useOutletContext()
@@ -17,7 +19,8 @@ function RequireStaff({ allowedRoles = ['admin', 'cashier'] }) {
 
   if (loading) return <p className="p-8 text-center text-sm text-slate-600">Memeriksa sesi...</p>
   if (!user) return <Navigate to="/admin/login" replace state={{ from: location }} />
-  if (!allowedRoles.includes(user.role)) return <Navigate to="/admin/orders" replace />
+  const redirectTo = getStaffRouteRedirect(user.role, allowedRoles)
+  if (redirectTo) return <Navigate to={redirectTo} replace />
   return <Outlet context={outletContext} />
 }
 
@@ -36,6 +39,7 @@ function AdminRoutes() {
       <Route element={<AdminDemoProvider><AdminLayout /></AdminDemoProvider>}>
         <Route element={<RequireStaff allowedRoles={['admin']} />}>
           <Route index element={<AdminDashboard />} />
+          <Route path="account" element={<AdminAccountPage />} />
           {adminNavigation.filter(({ path, key }) => path && ['products', 'categories', 'reports'].includes(key)).map((section) => <Route key={section.path} path={section.path} element={<AdminSectionPage section={section} />} />)}
         </Route>
         <Route path="pos" element={<AdminPOSPage />} />

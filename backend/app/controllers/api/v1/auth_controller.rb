@@ -2,7 +2,7 @@ module Api
   module V1
     class AuthController < BaseController
       skip_before_action :authenticate_request!, only: %i[login customer_register customer_login]
-      before_action :authenticate_request!, only: %i[me logout]
+      before_action :authenticate_request!, only: %i[me logout update_account]
 
       def login
         credentials = auth_credentials
@@ -84,6 +84,54 @@ module Api
         head :no_content
       end
 
+      def update_account
+        unless current_user.role == "admin"
+          return render_error("forbidden", "Pengaturan akun ini hanya tersedia untuk Admin.", :forbidden)
+        end
+
+        account = params.require(:account).permit(
+          :email, :current_password, :password, :password_confirmation
+        )
+        current_password = account[:current_password].to_s
+        if current_password.blank?
+          return render_error("current_password_required", "Kata sandi saat ini wajib diisi.", :unprocessable_entity)
+        end
+        unless current_user.authenticate(current_password)
+          return render_error("invalid_current_password", "Kata sandi saat ini tidak valid.", :unprocessable_entity)
+        end
+
+        password_changed = account[:password].present?
+        if account[:email].blank? && !password_changed
+          return render_error("account_change_required", "Masukkan email atau kata sandi baru.", :unprocessable_entity)
+        end
+        if password_changed && account[:password_confirmation].blank?
+          return render_error("password_confirmation_required", "Konfirmasi kata sandi baru wajib diisi.", :unprocessable_entity)
+        end
+        if !password_changed && account[:password_confirmation].present?
+          return render_error("invalid_password_confirmation", "Konfirmasi hanya dapat diisi bersama kata sandi baru.", :unprocessable_entity)
+        end
+
+        attributes = account.to_h.slice("email", "password", "password_confirmation")
+        updated = User.transaction do
+          if current_user.update(attributes)
+            current_user.auth_sessions.update_all(revoked_at: Time.current, updated_at: Time.current) if password_changed
+            true
+          else
+            false
+          end
+        end
+        unless updated
+          return render_validation_errors(current_user, message: "Data akun tidak valid.")
+        end
+
+        render json: {
+          user: serialize_user(current_user),
+          password_changed: password_changed
+        }
+      rescue ActionController::ParameterMissing
+        render_error("invalid_account_update", "Data akun wajib disertakan.", :unprocessable_entity)
+      end
+
       private
 
       def auth_credentials
@@ -110,10 +158,10 @@ module Api
         )
       end
 
-      def render_validation_errors(record)
+      def render_validation_errors(record, message: "Data pendaftaran tidak valid.")
         render_error(
           "validation_failed",
-          "Data pendaftaran tidak valid.",
+          message,
           :unprocessable_entity,
           details: record.errors.full_messages
         )

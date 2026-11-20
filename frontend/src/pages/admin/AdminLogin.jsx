@@ -1,18 +1,20 @@
 import { useState } from 'react'
 import { ArrowRight, LockKeyhole, Mail, Mountain } from 'lucide-react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAdminAuth } from '../../components/admin-auth-context'
+import { getStaffLoginDestination, isStaffRole } from '../../lib/admin-access'
 
 export default function AdminLogin() {
   const navigate = useNavigate()
-  const { user, loading, login, sessionExpired } = useAdminAuth()
+  const location = useLocation()
+  const { user, loading, login, logout, sessionExpired } = useAdminAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   if (loading) return <main className="grid min-h-screen place-items-center bg-canvas text-sm text-slate-600">Memeriksa sesi...</main>
-  if (user) return <Navigate to={user.role === 'admin' ? '/admin' : '/admin/orders'} replace />
+  if (user) return <Navigate to={getStaffLoginDestination(user.role)} replace />
 
   const submit = async (event) => {
     event.preventDefault()
@@ -20,7 +22,12 @@ export default function AdminLogin() {
     setSubmitting(true)
     try {
       const authenticatedUser = await login(email.trim(), password)
-      navigate(authenticatedUser.role === 'admin' ? '/admin' : '/admin/orders', { replace: true })
+      if (!isStaffRole(authenticatedUser.role)) {
+        await logout()
+        setError('Akun ini tidak memiliki akses ke portal staf.')
+        return
+      }
+      navigate(getStaffLoginDestination(authenticatedUser.role), { replace: true })
     } catch (requestError) {
       setError(requestError.message || 'Login gagal. Periksa koneksi dan kredensial Anda.')
     } finally {
@@ -36,11 +43,11 @@ export default function AdminLogin() {
         <div className="absolute inset-0 -z-10 bg-gradient-to-t from-secondary/95 via-secondary/55 to-secondary/20" />
         <Link to="/" className="inline-flex w-fit items-center gap-3 rounded-2xl bg-white px-3 py-2.5 shadow-lg" aria-label="Kembali ke website Arutala Adventure">
           <img src="/arutala-logo-transparent.png" alt="" className="size-11 object-contain" />
-          <span className="pr-2"><b className="block text-sm font-bold text-secondary">Arutala Adventure</b><small className="text-[9px] font-semibold tracking-[0.14em] text-secondary/70">OUTDOOR &amp; TRAVEL</small></span>
+          <span className="pr-2"><b className="block text-sm font-bold text-secondary">Arutala Adventure</b><small className="text-[9px] font-semibold tracking-[0.14em] text-secondary/70">OUTDOOR &amp; GEAR</small></span>
         </Link>
         <div className="mt-10 max-w-lg sm:mt-16 lg:mb-5">
           <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white backdrop-blur-sm"><Mountain size={14} aria-hidden="true" /> Area staf</span>
-          <h1 className="mb-3 max-w-md text-3xl font-bold leading-tight sm:text-4xl lg:text-5xl">Setiap perjalanan dimulai dari persiapan.</h1>
+          <h1 className="mb-3 max-w-md text-3xl font-bold leading-tight sm:text-4xl lg:text-5xl">Adventure In My Live.</h1>
           <p className="mb-0 max-w-md text-sm leading-relaxed text-white/85 sm:text-base">Kelola operasional Arutala Adventure dan bantu setiap petualang siap melangkah.</p>
         </div>
         <p className="mb-0 mt-8 hidden text-xs text-white/75 sm:block">Akses khusus untuk Admin dan Kasir.</p>
@@ -55,6 +62,7 @@ export default function AdminLogin() {
       </div>
 
       <form onSubmit={submit} className="space-y-4">
+        {location.state?.accountUpdated && <p role="status" className="m-0 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs text-emerald-800">Kata sandi berhasil diperbarui. Masuk kembali dengan kredensial baru.</p>}
         {sessionExpired && <p role="status" className="m-0 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-900">Sesi staf telah berakhir. Silakan masuk kembali.</p>}
         <label className="block text-xs font-semibold text-navy">Email staf
           <span className="relative mt-1.5 block">

@@ -1,7 +1,8 @@
-import { AtSign, Clock3, MapPin, Phone, ShieldAlert } from 'lucide-react'
+import { AtSign, Clock3, MapPin, MessageCircle, Phone, ShieldAlert } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import CustomerImage from '../components/CustomerImage'
 import { customerProducts } from '../data/customer-products'
+import { CUSTOMER_WHATSAPP_NUMBER, CUSTOMER_WHATSAPP_URL } from '../lib/customer-contact'
 
 export function AboutCustomerPage() {
   return <div className="mx-auto max-w-6xl px-5 py-12 max-md:px-4 max-md:py-8">
@@ -38,9 +39,13 @@ export function ContactCustomerPage() {
         <h2 className="mb-4 text-base font-semibold text-navy">Arutala Adventure</h2>
         <p className="flex gap-3 text-sm leading-relaxed text-[#566274]"><MapPin size={17} className="mt-0.5 shrink-0 text-primary" />Dusun Gerami, Desa Gelora, Kecamatan Sikur, Lombok Timur</p>
         <p className="flex items-center gap-3 text-sm text-[#566274]"><Phone size={17} className="text-primary" />0853-3379-6838</p>
+        <p className="flex items-center gap-3 text-sm text-[#566274]"><MessageCircle size={17} className="text-primary" />WhatsApp: +{CUSTOMER_WHATSAPP_NUMBER}</p>
         <p className="flex items-center gap-3 text-sm text-[#566274]"><AtSign size={17} className="text-primary" />@arutala.adventure</p>
         <p className="flex items-center gap-3 text-sm text-[#566274]"><Clock3 size={17} className="text-primary" />08.00–22.00 · informasi contoh</p>
-        <a href="tel:+6285333796838" className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-lg bg-navy px-4 text-sm font-semibold text-white transition hover:bg-secondary hover:text-white">
+        <a href={CUSTOMER_WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-white transition hover:bg-[#E64F00]">
+          <MessageCircle size={15} />Chat WhatsApp
+        </a>
+        <a href="tel:+6285333796838" className="ml-2 mt-5 inline-flex min-h-11 items-center gap-2 rounded-lg bg-navy px-4 text-sm font-semibold text-white transition hover:bg-secondary hover:text-white">
           <Phone size={15} />Hubungi toko
         </a>
       </section>

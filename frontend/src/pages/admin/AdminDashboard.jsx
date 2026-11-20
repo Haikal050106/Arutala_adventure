@@ -98,6 +98,12 @@ export default function AdminDashboard() {
         period: filters.period,
       })
       const payload = await adminApiRequest(`/dashboard?${params}`, { token: readAdminToken() })
+      if (payload.filters.start_date !== filters.startDate) {
+        setStartDate(payload.filters.start_date)
+        setFilters((current) => current.startDate === filters.startDate
+          ? { ...current, startDate: payload.filters.start_date }
+          : current)
+      }
       setReport(payload)
     } catch (requestError) {
       setError(errorMessage(requestError))
@@ -125,15 +131,16 @@ export default function AdminDashboard() {
   }
 
   const pendingCount = (report?.pending_orders.length || 0) + (report?.pending_rentals.length || 0)
+  const reportingStartDate = report?.reporting_start_at?.slice(0, 10)
 
   return <div>
     <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-      <div><p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-primary">Ringkasan usaha · Data database</p><h1 className="m-0 text-2xl font-bold tracking-tight text-navy max-sm:text-xl">Dashboard Admin</h1><p className="mb-0 mt-2 text-sm text-slate-600">Pendapatan berasal dari Payment berstatus berhasil.</p></div>
+      <div><p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-primary">Ringkasan usaha · Data database</p><h1 className="m-0 text-2xl font-bold tracking-tight text-navy max-sm:text-xl">Dashboard Admin</h1><p className="mb-0 mt-2 text-sm text-slate-600">Pendapatan berasal dari Payment berstatus berhasil.</p>{report?.reporting_start_at && <p className="mb-0 mt-1 text-xs text-slate-500">Pencatatan operasional sejak {dateTime(report.reporting_start_at)}.</p>}</div>
       <Link to="/admin/payments" className="text-xs font-semibold text-secondary hover:underline">Lihat riwayat pembayaran</Link>
     </div>
     <form onSubmit={applyFilters} className="mb-5 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <label className="text-xs font-semibold text-navy">Dari tanggal<input type="date" required value={startDate} onChange={(event) => setStartDate(event.target.value)} className="mt-1.5 block h-10 rounded-lg border border-slate-200 px-3 text-xs font-normal" /></label>
-      <label className="text-xs font-semibold text-navy">Sampai tanggal<input type="date" required value={endDate} onChange={(event) => setEndDate(event.target.value)} className="mt-1.5 block h-10 rounded-lg border border-slate-200 px-3 text-xs font-normal" /></label>
+      <label className="text-xs font-semibold text-navy">Dari tanggal<input type="date" required min={reportingStartDate} value={startDate} onChange={(event) => setStartDate(event.target.value)} className="mt-1.5 block h-10 rounded-lg border border-slate-200 px-3 text-xs font-normal" /></label>
+      <label className="text-xs font-semibold text-navy">Sampai tanggal<input type="date" required min={reportingStartDate} value={endDate} onChange={(event) => setEndDate(event.target.value)} className="mt-1.5 block h-10 rounded-lg border border-slate-200 px-3 text-xs font-normal" /></label>
       <label className="text-xs font-semibold text-navy">Grafik<select value={period} onChange={(event) => setPeriod(event.target.value)} className="mt-1.5 block h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-normal"><option value="daily">Harian</option><option value="monthly">Bulanan</option></select></label>
       <button type="submit" disabled={loading} className="h-10 rounded-lg bg-primary px-4 text-xs font-semibold text-secondary disabled:opacity-50">Terapkan filter</button>
       <span className="ml-auto text-[11px] text-slate-500">{filters.startDate} – {filters.endDate}</span>

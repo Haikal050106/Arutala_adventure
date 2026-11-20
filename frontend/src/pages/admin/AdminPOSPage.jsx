@@ -24,7 +24,7 @@ const QRIS_IMAGE_KEY = 'arutala-pos-static-qris-image'
 
 export default function AdminPOSPage() {
   const { notify } = useOutletContext()
-  const [activeTab, setActiveTab] = useState('sales')
+  const [activeTab, setActiveTab] = useState('rentals')
   const [products, setProducts] = useState([])
   const [customers, setCustomers] = useState([])
   const [orders, setOrders] = useState([])
@@ -325,8 +325,8 @@ export default function AdminPOSPage() {
 
     <div className="mb-5 flex gap-2 border-b border-slate-200" role="tablist" aria-label="Jenis transaksi kasir">
       {[
-        { tab: 'sales', label: 'Kasir Penjualan', icon: <ShoppingCart size={16} aria-hidden="true" /> },
         { tab: 'rentals', label: 'Kasir Penyewaan', icon: <CalendarDays size={16} aria-hidden="true" /> },
+        { tab: 'sales', label: 'Kasir Penjualan', icon: <ShoppingCart size={16} aria-hidden="true" /> },
       ].map(({ tab, label, icon }) => (
         <button
           key={tab}

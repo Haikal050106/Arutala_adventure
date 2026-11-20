@@ -1,8 +1,7 @@
 import { createElement } from 'react'
-import { AlertCircle, ArrowRight, BadgeCheck, CalendarCheck, MapPin, RefreshCw } from 'lucide-react'
+import { AlertCircle, ArrowRight, Backpack, BadgeCheck, BedDouble, CalendarCheck, Compass, CookingPot, Footprints, MapPin, Mountain, RefreshCw, TentTree } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import CustomerProductCard from '../components/CustomerProductCard'
-import CustomerImage from '../components/CustomerImage'
 import { useCustomerStore } from '../components/useCustomerStore'
 
 const services = [
@@ -10,6 +9,17 @@ const services = [
   { icon: CalendarCheck, title: 'Sewa fleksibel', text: 'Rencanakan durasi dan jumlah alat sebelum datang.' },
   { icon: MapPin, title: 'Berbasis di Sikur', text: 'Kunjungi Arutala Adventure di Lombok Timur.' },
 ]
+
+const getCategoryIcon = (name) => {
+  const category = name.toLowerCase()
+  if (category.includes('tenda')) return TentTree
+  if (category.includes('tas') || category.includes('carrier')) return Backpack
+  if (category.includes('kaki') || category.includes('sepatu')) return Footprints
+  if (category.includes('masak')) return CookingPot
+  if (category.includes('nyaman') || category.includes('istirahat')) return BedDouble
+  if (category.includes('aksesori')) return Compass
+  return Mountain
+}
 
 export default function StoreHome() {
   const { products, categories, catalogLoading, catalogError, reloadCatalog } = useCustomerStore()
@@ -27,7 +37,15 @@ export default function StoreHome() {
 
     <section className="mx-auto max-w-7xl px-5 py-14 max-md:px-4 max-md:py-10">
       <div className="mb-6 flex items-end justify-between gap-4"><div><p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-primary">Temukan kebutuhanmu</p><h2 className="m-0 text-2xl font-bold tracking-tight text-navy max-sm:text-xl">Belanja berdasarkan kategori</h2></div><Link to="/katalog" className="hidden items-center gap-1 text-sm font-semibold text-navy hover:text-primary sm:flex">Semua produk <ArrowRight size={15} /></Link></div>
-      {catalogLoading ? <p role="status" className="rounded-xl bg-white p-6 text-sm text-[#566274]">Memuat kategori...</p> : catalogError ? <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"><span className="flex items-center gap-2"><AlertCircle size={16} />Kategori gagal dimuat dari server.</span><button type="button" onClick={reloadCatalog} className="inline-flex items-center gap-2 font-semibold hover:underline"><RefreshCw size={14} />Coba lagi</button></div> : categories.length ? <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">{categories.map((category) => <Link key={category.id} to={`/katalog?kategori=${encodeURIComponent(category.name)}`} className="group relative aspect-[1.12] overflow-hidden rounded-xl border border-[#DDE2E9] bg-navy"><CustomerImage src={category.image} alt="" loading="lazy" className="absolute inset-0 transition-transform duration-500 group-hover:scale-105" /><span className="absolute inset-0 bg-navy/45 transition group-hover:bg-navy/60" /><span className="absolute bottom-3 left-3 right-2 text-sm font-semibold text-white">{category.name}</span></Link>)}</div> : <p className="text-sm text-[#566274]">Belum ada kategori di katalog.</p>}
+      {catalogLoading ? <p role="status" className="rounded-xl bg-white p-6 text-sm text-[#566274]">Memuat kategori...</p> : catalogError ? <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"><span className="flex items-center gap-2"><AlertCircle size={16} />Kategori gagal dimuat dari server.</span><button type="button" onClick={reloadCatalog} className="inline-flex items-center gap-2 font-semibold hover:underline"><RefreshCw size={14} />Coba lagi</button></div> : categories.length ? <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">{categories.map((category) => {
+        const CategoryIcon = getCategoryIcon(category.name)
+        return <Link key={category.id} to={`/katalog?jenis=sewa&kategori=${encodeURIComponent(category.name)}`} className="group grid aspect-[1.12] place-items-center rounded-xl border border-[#DDE2E9] bg-white px-2 text-center transition hover:border-primary hover:bg-sand/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+          <span className="flex flex-col items-center gap-3">
+            <span className="grid size-14 place-items-center rounded-full bg-sand/40 text-primary transition group-hover:bg-primary group-hover:text-white"><CategoryIcon size={28} strokeWidth={1.8} aria-hidden="true" /></span>
+            <span className="text-sm font-semibold leading-snug text-navy">{category.name}</span>
+          </span>
+        </Link>
+      })}</div> : <p className="text-sm text-[#566274]">Belum ada kategori di katalog.</p>}
     </section>
 
     <section className="border-y border-[#DDE2E9] bg-white"><div className="mx-auto max-w-7xl px-5 py-14 max-md:px-4 max-md:py-10"><div className="mb-6 flex items-end justify-between gap-4"><div><p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-primary">Pilihan tim Arutala</p><h2 className="m-0 text-2xl font-bold tracking-tight text-navy max-sm:text-xl">Gear untuk langkah berikutnya</h2></div><Link to="/katalog" className="inline-flex items-center gap-1 text-sm font-semibold text-navy hover:text-primary">Lihat katalog <ArrowRight size={15} /></Link></div>{catalogLoading ? <p role="status" className="text-sm text-[#566274]">Memuat produk unggulan...</p> : catalogError ? <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"><span>Produk unggulan gagal dimuat dari server.</span><button type="button" onClick={reloadCatalog} className="font-semibold hover:underline">Coba lagi</button></div> : featuredProducts.length ? <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">{featuredProducts.map((product) => <CustomerProductCard key={product.id} product={product} />)}</div> : <p className="text-sm text-[#566274]">Belum ada produk unggulan.</p>}</div></section>

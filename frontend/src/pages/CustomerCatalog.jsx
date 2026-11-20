@@ -8,7 +8,7 @@ import CustomerProductCard from '../components/CustomerProductCard'
 export default function CustomerCatalog() {
   const { products, categories, catalogLoading, catalogError, reloadCatalog } = useCustomerStore()
   const [searchParams, setSearchParams] = useSearchParams()
-  const initialMode = searchParams.get('jenis') === 'sewa' ? 'rental' : 'purchase'
+  const initialMode = searchParams.get('jenis') === 'jual' ? 'purchase' : 'rental'
   const [mode, setMode] = useState(initialMode)
   const [category, setCategory] = useState(searchParams.get('kategori') || 'Semua')
   const [search, setSearch] = useState('')
@@ -41,7 +41,7 @@ export default function CustomerCatalog() {
   return <div className="mx-auto max-w-7xl px-5 py-10 max-md:px-4 max-md:py-7">
     <div className="mb-8"><p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-primary">Pilih gear untuk perjalanan</p><h1 className="mb-2 text-3xl font-bold tracking-tight text-navy max-sm:text-2xl">Katalog perlengkapan</h1><p className="m-0 text-sm text-[#566274]">Harga dan stok dasar dimuat dari katalog Arutala. Ketersediaan akhir perlu konfirmasi toko.</p></div>
     <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[#DDE2E9] bg-white p-4">
-      <div className="inline-flex rounded-lg bg-canvas p-1"><button type="button" onClick={() => selectMode('purchase')} className={`rounded-md px-4 py-2.5 text-sm font-semibold transition ${mode === 'purchase' ? 'bg-white text-navy shadow-sm' : 'text-[#566274] hover:text-navy'}`}>Beli perlengkapan</button><button type="button" onClick={() => selectMode('rental')} className={`rounded-md px-4 py-2.5 text-sm font-semibold transition ${mode === 'rental' ? 'bg-white text-navy shadow-sm' : 'text-[#566274] hover:text-navy'}`}>Sewa alat</button></div>
+      <div className="inline-flex rounded-lg bg-canvas p-1"><button type="button" onClick={() => selectMode('rental')} className={`rounded-md px-4 py-2.5 text-sm font-semibold transition ${mode === 'rental' ? 'bg-white text-navy shadow-sm' : 'text-[#566274] hover:text-navy'}`}>Sewa alat</button><button type="button" onClick={() => selectMode('purchase')} className={`rounded-md px-4 py-2.5 text-sm font-semibold transition ${mode === 'purchase' ? 'bg-white text-navy shadow-sm' : 'text-[#566274] hover:text-navy'}`}>Beli perlengkapan</button></div>
       <label className="relative w-full max-w-80"><Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#566274]" aria-hidden="true" /><input className="h-11 w-full rounded-lg border border-[#DDE2E9] bg-white pl-10 pr-3 text-sm outline-none transition placeholder:text-[#566274] focus:border-primary focus:ring-2 focus:ring-primary/25" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari nama atau kategori..." /></label>
     </div>
     <div className="mb-6 flex items-center gap-2 overflow-x-auto pb-1"><SlidersHorizontal size={16} className="mr-1 shrink-0 text-[#566274]" aria-hidden="true" /><span className="shrink-0 text-xs font-semibold text-navy">Kategori</span>{categoryOptions.map((item) => <button key={item.name} type="button" onClick={() => selectCategory(item.name)} className={`shrink-0 rounded-full border px-3.5 py-2 text-xs font-medium transition ${category === item.name ? 'border-navy bg-navy text-white' : 'border-[#DDE2E9] bg-white text-[#566274] hover:border-primary hover:text-secondary'}`}>{item.name}</button>)}</div>

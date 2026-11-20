@@ -1,4 +1,4 @@
-import { CalendarDays, ChartNoAxesCombined, ClipboardList, LayoutDashboard, Package, ReceiptText, ShoppingCart, Tags, UsersRound } from 'lucide-react'
+import { CalendarDays, ChartNoAxesCombined, ClipboardList, KeyRound, LayoutDashboard, Package, ReceiptText, ShoppingCart, Tags, UsersRound } from 'lucide-react'
 
 export const adminNavigation = [
   {
@@ -82,5 +82,13 @@ export const adminNavigation = [
     description: 'Tinjau ringkasan penjualan dan penyewaan.',
     emptyTitle: 'Ringkasan laporan',
     emptyDescription: 'Ringkasan aktivitas dan laporan usaha akan tersedia pada tahap berikutnya.',
+  },
+  {
+    path: 'account',
+    href: '/admin/account',
+    key: 'account',
+    label: 'Akun Admin',
+    icon: KeyRound,
+    description: 'Ubah email dan kata sandi akun Admin yang sedang digunakan.',
   },
 ]

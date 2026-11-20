@@ -12,12 +12,13 @@ module Api
           return render_error("invalid_period", "Periode harus daily atau monthly.", :unprocessable_entity)
         end
 
-        payment_scope = Payment.where(status: "succeeded", paid_at: date_range)
-        purchase_revenue = payment_scope.where.not(order_id: nil).sum(:amount)
-        rental_revenue = payment_scope.where.not(rental_id: nil).sum(:amount)
-        chart = revenue_chart(payment_scope, period)
+        purchase_payments, rental_payments = successful_payment_scopes(date_range)
+        purchase_revenue = purchase_payments.sum(:amount)
+        rental_revenue = rental_payments.sum(:amount)
+        chart = revenue_chart(purchase_payments, rental_payments, period)
 
         render json: {
+          reporting_start_at: ReportingWindow::RESET_AT.iso8601(3),
           filters: { start_date: @start_date, end_date: @end_date, period: period },
           revenue: {
             total: purchase_revenue + rental_revenue,
@@ -37,14 +38,50 @@ module Api
         }
       end
 
+      def transactions
+        parse_date_range(default_start_date: ReportingWindow::RESET_AT.to_date)
+        return if performed?
+
+        orders = Order.includes(:customer).where(created_at: date_range).order(created_at: :desc)
+        rentals = Rental.includes(:customer).where(created_at: date_range).order(created_at: :desc)
+        purchase_payments, rental_payments = successful_payment_scopes(date_range)
+        purchase_revenue_by_order = purchase_payments.group(:order_id).sum(:amount)
+        rental_revenue_by_rental = rental_payments.group(:rental_id).sum(:amount)
+        purchase_revenue = purchase_revenue_by_order.values.sum
+        rental_revenue = rental_revenue_by_rental.values.sum
+
+        transactions = orders.map do |order|
+          serialize_report_transaction(order, "purchase", order.order_number, purchase_revenue_by_order)
+        end
+        transactions.concat(rentals.map do |rental|
+          serialize_report_transaction(rental, "rental", rental.rental_number, rental_revenue_by_rental)
+        end)
+
+        render json: {
+          reporting_start_at: ReportingWindow::RESET_AT.iso8601(3),
+          filters: { start_date: @start_date, end_date: @end_date },
+          summary: {
+            transactions: { purchases: orders.length, rentals: rentals.length },
+            revenue: {
+              total: purchase_revenue + rental_revenue,
+              purchase: purchase_revenue,
+              rental: rental_revenue
+            }
+          },
+          transactions: transactions.sort_by { |transaction| transaction[:created_at] }.reverse
+        }
+      end
+
       private
 
-      def parse_date_range
+      def parse_date_range(default_start_date: nil)
         @end_date = parse_date(params[:end_date]) || Date.current
-        @start_date = parse_date(params[:start_date]) || (@end_date - 29.days)
-        return if @start_date <= @end_date
+        requested_start_date = parse_date(params[:start_date]) || default_start_date || (@end_date - 29.days)
+        if requested_start_date > @end_date
+          return render_error("invalid_date_range", "Tanggal mulai tidak boleh setelah tanggal akhir.", :unprocessable_entity)
+        end
 
-        render_error("invalid_date_range", "Tanggal mulai tidak boleh setelah tanggal akhir.", :unprocessable_entity)
+        @start_date = [ requested_start_date, ReportingWindow::RESET_AT.to_date ].max
       rescue Date::Error
         render_error("invalid_date_range", "Format tanggal harus YYYY-MM-DD.", :unprocessable_entity)
       end
@@ -56,24 +93,31 @@ module Api
       end
 
       def date_range
-        @start_date.beginning_of_day..@end_date.end_of_day
+        [ @start_date.beginning_of_day, ReportingWindow::RESET_AT ].max..@end_date.end_of_day
       end
 
-      def revenue_chart(payment_scope, period)
+      def successful_payment_scopes(range)
+        succeeded_payments = Payment.where(status: "succeeded", paid_at: range)
+        purchase_payments = succeeded_payments.joins(:order).where(orders: { created_at: range })
+        rental_payments = succeeded_payments.joins(:rental).where(rentals: { created_at: range })
+        [ purchase_payments, rental_payments ]
+      end
+
+      def revenue_chart(purchase_payments, rental_payments, period)
         key_sql = period == "monthly" ? "strftime('%Y-%m', paid_at)" : "DATE(paid_at)"
-        grouped = payment_scope.group(Arel.sql(key_sql))
-          .sum(Arel.sql("CASE WHEN order_id IS NOT NULL THEN amount ELSE 0 END"))
-        rental_grouped = payment_scope.group(Arel.sql(key_sql))
-          .sum(Arel.sql("CASE WHEN rental_id IS NOT NULL THEN amount ELSE 0 END"))
+        purchase_grouped = purchase_payments.group(Arel.sql(key_sql)).sum(:amount)
+        rental_grouped = rental_payments.group(Arel.sql(key_sql)).sum(:amount)
 
         chart_buckets(period).map do |date, key|
-          purchase = grouped[key] || 0
+          purchase = purchase_grouped[key] || 0
           rental = rental_grouped[key] || 0
           { date: date, purchase: purchase, rental: rental, total: purchase + rental }
         end
       end
 
       def chart_buckets(period)
+        return [] if @start_date > @end_date || @end_date.end_of_day < ReportingWindow::RESET_AT
+
         if period == "monthly"
           month = @start_date.beginning_of_month
           last_month = @end_date.beginning_of_month
@@ -87,6 +131,20 @@ module Api
         else
           (@start_date..@end_date).map { |date| [ date.iso8601, date.iso8601 ] }
         end
+      end
+
+      def serialize_report_transaction(transaction, kind, number, revenue_by_transaction)
+        {
+          id: transaction.id,
+          number: number,
+          payment_code: transaction.payment_code,
+          kind: kind,
+          created_at: transaction.created_at,
+          customer: { name: transaction.customer.name },
+          total_amount: transaction.total_amount,
+          status: transaction.status,
+          successful_payment_amount: revenue_by_transaction[transaction.id] || 0
+        }
       end
 
       def customer_counts

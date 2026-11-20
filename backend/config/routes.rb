@@ -4,9 +4,11 @@ Rails.application.routes.draw do
       post "auth/login", to: "auth#login"
       post "auth/customer/register", to: "auth#customer_register"
       post "auth/customer/login", to: "auth#customer_login"
+      patch "auth/account", to: "auth#update_account"
       delete "auth/logout", to: "auth#logout"
       get "auth/me", to: "auth#me"
       get "dashboard", to: "reports#dashboard"
+      get "reports/transactions", to: "reports#transactions"
       post "webhooks/midtrans", to: "midtrans_webhooks#create"
       post "customer/payments/:payment_id/refresh", to: "customer_payments#refresh"
       resources :users, only: %i[index show create update destroy]

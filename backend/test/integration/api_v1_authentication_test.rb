@@ -431,4 +431,93 @@ class ApiV1AuthenticationTest < ActionDispatch::IntegrationTest
     get "/api/v1/auth/me", headers: { "Authorization" => "Bearer #{token}" }
     assert_response :unauthorized
   end
+
+  test "admin changes its existing email after confirming current password" do
+    old_password_digest = @default_test_user.password_digest
+    new_email = "admin-updated-#{SecureRandom.hex(4)}@example.test"
+
+    assert_no_difference "User.count" do
+      patch "/api/v1/auth/account", params: {
+        account: { email: new_email, current_password: "TestAdminPassword!2026" }
+      }, as: :json
+    end
+
+    assert_response :success
+    @default_test_user.reload
+    assert_equal new_email, @default_test_user.email
+    assert_equal "admin", @default_test_user.role
+    assert_equal old_password_digest, @default_test_user.password_digest
+    assert_equal @default_test_user.id, response.parsed_body.dig("user", "id")
+    assert_not_includes response.body, "password_digest"
+
+    post "/api/v1/auth/login", params: {
+      auth: { email: new_email, password: "TestAdminPassword!2026" }
+    }, as: :json
+    assert_response :created
+    assert_equal @default_test_user.id, response.parsed_body.dig("user", "id")
+  end
+
+  test "admin changes password using Rails hashing and password change revokes sessions" do
+    old_token = @default_test_token
+    new_password = SecureRandom.hex(16)
+
+    patch "/api/v1/auth/account", params: {
+      account: {
+        current_password: "TestAdminPassword!2026",
+        password: new_password,
+        password_confirmation: new_password
+      }
+    }, as: :json
+
+    assert_response :success
+    @default_test_user.reload
+    assert_equal "admin", @default_test_user.role
+    assert @default_test_user.authenticate(new_password)
+    assert_not @default_test_user.authenticate("TestAdminPassword!2026")
+    assert_equal true, response.parsed_body.fetch("password_changed")
+    assert_not_includes response.body, new_password
+    assert_not_includes response.body, "password_digest"
+
+    get "/api/v1/auth/me", headers: { "Authorization" => "Bearer #{old_token}" }
+    assert_response :unauthorized
+
+    post "/api/v1/auth/login", params: {
+      auth: { email: @default_test_user.email, password: new_password }
+    }, as: :json
+    assert_response :created
+    assert_equal @default_test_user.id, response.parsed_body.dig("user", "id")
+  end
+
+  test "account changes require current password and are limited to admins" do
+    old_email = @default_test_user.email
+    old_password = "TestAdminPassword!2026"
+
+    patch "/api/v1/auth/account", params: {
+      account: { email: "not-authorized@example.test", current_password: "WrongPassword!2026" }
+    }, as: :json
+    assert_response :unprocessable_entity
+    assert_equal "invalid_current_password", response.parsed_body.dig("error", "code")
+    assert_equal old_email, @default_test_user.reload.email
+
+    patch "/api/v1/auth/account", params: {
+      account: { password: SecureRandom.hex(16), current_password: old_password }
+    }, as: :json
+    assert_response :unprocessable_entity
+    assert_equal "password_confirmation_required", response.parsed_body.dig("error", "code")
+    assert @default_test_user.reload.authenticate(old_password)
+
+    cashier_password = SecureRandom.hex(16)
+    cashier = User.create!(
+      name: "Kasir Pengaturan",
+      email: "account-cashier-#{SecureRandom.hex(4)}@example.test",
+      password: cashier_password,
+      role: "cashier"
+    )
+    cashier_token = AuthSession.issue_for(cashier).last
+    patch "/api/v1/auth/account", params: {
+      account: { email: "cashier-updated@example.test", current_password: cashier_password }
+    }, headers: { "Authorization" => "Bearer #{cashier_token}" }, as: :json
+    assert_response :forbidden
+    assert_equal cashier.email, cashier.reload.email
+  end
 end
