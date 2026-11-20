@@ -6,6 +6,7 @@ import CustomerPicker from '../../components/CustomerPicker'
 import StaticQrisDialog from '../../components/StaticQrisDialog'
 import { adminApiRequest, readAdminToken } from '../../lib/admin-api'
 import { money } from '../../lib/customer-shop'
+import { mergeCustomerList } from '../../lib/customer-list'
 import { SHOE_SIZES } from '../../lib/shoe-constants'
 import AdminRentalsPage from './AdminRentalsPage'
 
@@ -51,7 +52,7 @@ export default function AdminPOSPage() {
     ])
     setOrders(orderRecords)
     setProducts(productRecords)
-    setCustomers(customerRecords)
+    setCustomers((current) => mergeCustomerList(current, customerRecords))
   }, [])
 
   useEffect(() => {
@@ -79,7 +80,7 @@ export default function AdminPOSPage() {
 
   const selectCustomer = (id, customer) => {
     setCustomerId(id)
-    if (customer) setCustomers((current) => [...current.filter((item) => item.id !== customer.id), customer].sort((a, b) => a.name.localeCompare(b.name)))
+    if (customer) setCustomers((current) => mergeCustomerList(current, [customer]))
   }
 
   const openPaymentDialog = (order) => {
@@ -380,7 +381,7 @@ export default function AdminPOSPage() {
         <aside className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm xl:sticky xl:top-20">
           <div className="bg-navy px-5 py-4 text-white"><h2 className="m-0 text-base font-semibold">Transaksi baru</h2><p className="mb-0 mt-1 text-xs text-slate-300">Harga dan stok diverifikasi oleh server.</p></div>
           <div className="p-5">
-            <CustomerPicker customers={customers} value={customerId} onChange={selectCustomer} />
+            <CustomerPicker customers={customers} value={customerId} onChange={selectCustomer} notify={notify} />
             <div className="my-4 max-h-72 min-h-24 overflow-auto">
               {cart.map(({ id, product, size, quantity }) => { const price = Number(product.sale_price); const stock = Number(product.is_shoe ? product.shoe_sizes?.find((entry) => String(entry.size) === String(size))?.sale_stock : product.sale_stock); return <div key={id} className="flex items-start gap-3 border-b border-slate-100 py-3 last:border-0">
                 <div className="min-w-0 flex-1"><strong className="block truncate text-xs text-navy">{product.name}</strong>{size && <span className="mt-1 block text-[11px] text-slate-500">Ukuran {size}</span>}<span className="mt-1 block text-[11px] text-slate-500">{money(price)} / unit</span>

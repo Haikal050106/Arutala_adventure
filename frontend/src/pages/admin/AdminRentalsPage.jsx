@@ -7,6 +7,7 @@ import RentalPaymentPanel from '../../components/RentalPaymentPanel'
 import StaticQrisDialog from '../../components/StaticQrisDialog'
 import { adminApiRequest, readAdminToken } from '../../lib/admin-api'
 import { money, uniqueRentalPeriods } from '../../lib/customer-shop'
+import { mergeCustomerList } from '../../lib/customer-list'
 import { SHOE_SIZES } from '../../lib/shoe-constants'
 
 const errorMessage = (error) => error instanceof Error ? error.message : 'Permintaan ke server gagal.'
@@ -103,7 +104,15 @@ export default function AdminRentalsPage({ mode = 'all' }) {
     ])
     setRentals(rentalRecords)
     setProducts(productRecords)
-    setCustomers(customerRecords.map(apiCustomer))
+    setCustomers((current) => mergeCustomerList(current, customerRecords.map(apiCustomer)))
+  }, [])
+
+  const refreshCustomerList = useCallback(async (createdCustomer) => {
+    const customerRecords = await adminApiRequest('/customers', { token: readAdminToken() })
+    setCustomers(mergeCustomerList(
+      customerRecords.map(apiCustomer),
+      [apiCustomer(createdCustomer)],
+    ))
   }, [])
 
   useEffect(() => {
@@ -140,7 +149,7 @@ export default function AdminRentalsPage({ mode = 'all' }) {
   const selectCustomer = (id, customer) => {
     setCustomerId(id)
     if (customer) {
-      setCustomers((current) => [...current.filter((item) => item.id !== customer.id), apiCustomer(customer)].sort((a, b) => a.name.localeCompare(b.name)))
+      setCustomers((current) => mergeCustomerList(current, [apiCustomer(customer)]))
       if (customer.village_name) setVillageName(customer.village_name)
     }
   }
@@ -480,7 +489,7 @@ export default function AdminRentalsPage({ mode = 'all' }) {
       <aside className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm xl:sticky xl:top-20">
         <div className="bg-navy px-5 py-4 text-white"><h2 className="m-0 text-base font-semibold">Transaksi sewa</h2><p className="mb-0 mt-1 text-xs text-slate-300">Server memvalidasi ketersediaan dan biaya.</p></div>
         <div className="space-y-4 p-5">
-          <CustomerPicker customers={customers} value={customerId} onChange={selectCustomer} />
+          <CustomerPicker customers={customers} value={customerId} onChange={selectCustomer} onCustomerCreated={refreshCustomerList} notify={notify} />
           <label className="block text-xs font-semibold text-navy">Desa/Kelurahan<input required maxLength={150} value={villageName} onChange={(event) => setVillageName(event.target.value)} placeholder="Nama desa/kelurahan" className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-primary focus:ring-2 focus:ring-primary/25" /></label>
           <div className="grid grid-cols-2 gap-3">
             <label className="block text-xs font-semibold text-navy">Mulai sewa<input required type="date" min={today} value={startDate} onChange={(event) => setStartDate(event.target.value)} className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-2 text-xs font-normal outline-none focus:border-primary focus:ring-2 focus:ring-primary/25" /></label>

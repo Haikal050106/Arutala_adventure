@@ -3,7 +3,7 @@ import { adminApiRequest, readAdminToken } from '../lib/admin-api'
 
 const fieldClass = 'mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal outline-none focus:border-primary focus:ring-2 focus:ring-primary/25'
 
-export default function CustomerPicker({ customers, value, onChange }) {
+export default function CustomerPicker({ customers, value, onChange, onCustomerCreated, notify }) {
   const [query, setQuery] = useState('')
   const [adding, setAdding] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -21,9 +21,15 @@ export default function CustomerPicker({ customers, value, onChange }) {
     ? [selectedCustomer, ...filteredCustomers]
     : filteredCustomers
 
-  const createCustomer = async (event) => {
-    event.preventDefault()
+  const createCustomer = async () => {
     if (saving) return
+    if (!newCustomer.name.trim()) {
+      const message = 'Nama pelanggan wajib diisi.'
+      setError(message)
+      notify?.(message, 'error')
+      return
+    }
+
     setSaving(true)
     setError('')
     try {
@@ -42,11 +48,27 @@ export default function CustomerPicker({ customers, value, onChange }) {
       setQuery('')
       setNewCustomer({ name: '', phone: '', village_name: '' })
       setAdding(false)
+      notify?.(`Pelanggan ${customer.name} siap digunakan dan telah dipilih. Data tersimpan di server.`)
+      try {
+        await onCustomerCreated?.(customer)
+      } catch (refreshError) {
+        const message = refreshError instanceof Error ? refreshError.message : 'Daftar pelanggan gagal diperbarui.'
+        notify?.(`Pelanggan berhasil disimpan dan dipilih, tetapi daftar gagal diperbarui: ${message}`, 'error')
+      }
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Pelanggan gagal disimpan.')
+      const message = requestError instanceof Error ? requestError.message : 'Pelanggan gagal disimpan.'
+      setError(message)
+      notify?.(`Pelanggan gagal disimpan: ${message}`, 'error')
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleCustomerKeyDown = (event) => {
+    if (event.key !== 'Enter' || event.target.tagName !== 'INPUT') return
+    event.preventDefault()
+    event.stopPropagation()
+    createCustomer()
   }
 
   return <div>
@@ -82,7 +104,7 @@ export default function CustomerPicker({ customers, value, onChange }) {
     >
       {adding ? 'Tutup form' : '+ Tambah Pelanggan Baru'}
     </button>
-    {adding && <form onSubmit={createCustomer} className="mt-3 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+    {adding && <div onKeyDown={handleCustomerKeyDown} className="mt-3 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
       <label className="block text-xs font-semibold text-navy">Nama pelanggan *
         <input required maxLength={100} value={newCustomer.name} onChange={(event) => setNewCustomer((current) => ({ ...current, name: event.target.value }))} className={fieldClass} />
       </label>
@@ -93,9 +115,9 @@ export default function CustomerPicker({ customers, value, onChange }) {
         <input maxLength={150} value={newCustomer.village_name} onChange={(event) => setNewCustomer((current) => ({ ...current, village_name: event.target.value }))} className={fieldClass} />
       </label>
       {error && <p role="alert" className="mb-0 text-xs text-red-700">{error}</p>}
-      <button type="submit" disabled={saving} className="h-9 w-full rounded-lg bg-primary px-3 text-xs font-semibold text-secondary disabled:opacity-50">
+      <button type="button" onClick={createCustomer} disabled={saving} aria-busy={saving} className="h-9 w-full rounded-lg bg-primary px-3 text-xs font-semibold text-secondary disabled:opacity-50">
         {saving ? 'Menyimpan...' : 'Simpan & pilih pelanggan'}
       </button>
-    </form>}
+    </div>}
   </div>
 }
